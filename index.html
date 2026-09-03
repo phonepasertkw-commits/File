@@ -81,7 +81,7 @@
   [contenteditable="true"]:focus { background: var(--card-bg); box-shadow: 0 0 0 2px var(--accent); }
 
   .col-select { width: 38px; }
-  .col-item { width: 230px; text-align: left; padding: 4px 8px; }
+  .col-item { width: 320px; text-align: left; padding: 4px 8px; }
   .col-item-content { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .col-item-content span[contenteditable] { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .col-dynamic { width: 160px; }
@@ -89,8 +89,9 @@
   .col-add-header { width: 42px; cursor: pointer; font-size: 18px; color: var(--accent); }
 
   .dropdown-select {
-    width: 100%; height: 100%; border: none; outline: none;
-    font-size: 12.5px; font-weight: 700; text-align-last: center; cursor: pointer;
+    width: 90%; height: 28px; border: none; outline: none;
+    font-size: 12px; font-weight: 700; text-align-last: center; cursor: pointer;
+    border-radius: 14px; margin: 0 auto; display: block;
   }
   .dropdown-select option { background-color: #fff !important; color: #333 !important; }
 
@@ -319,30 +320,29 @@
 const LEGACY_STATUS_OPTIONS = [
   { label: "Done", color: "#00c875" },
   { label: "In Progress", color: "#fdab3d" },
-  { label: "Upcoming", color: "#ff7575" },
+  { label: "Upcoming", color: "#579bfc" },
   { label: "Stuck", color: "#e2445c" }
 ];
 
-/* 1. ຕົວເລືອກ Drop list ສຳລັບ Day (ວັນ) */
+/* 1. ຕົວເລືອກ Drop list ສຳລັບ Day (ວັນ) ພ້ອມສີປຸ່ມ */
 const LEGACY_DAY_OPTIONS = [
-  { label: "Monday", color: "#e67e22" },
-  { label: "Tuesday", color: "#e84393" },
-  { label: "Wednesday", color: "#2ecc71" },
-  { label: "Thursday", color: "#f39c12" },
-  { label: "Friday", color: "#00cec9" },
-  { label: "Saturday", color: "#9b59b6" },
-  { label: "Sunday", color: "#e74c3c" }
+  { label: "ວັນຈັນ", color: "#e67e22" },
+  { label: "ວັນອັງຄານ", color: "#e84393" },
+  { label: "ວັນພຸດ", color: "#2ecc71" },
+  { label: "ວັນພະຫັດ", color: "#f39c12" },
+  { label: "ວັນສຸກ", color: "#00cec9" },
+  { label: "ວັນເສົາ", color: "#9b59b6" },
+  { label: "ວັນອາທິດ", color: "#e74c3c" }
 ];
 
 /* 2. ຕົວເລືອກ Drop list ສຳລັບ Channels (ຊ່ອງທາງ) */
 const LEGACY_CHANNEL_OPTIONS = [
-  { label: "Facebook Page", color: "#1877f2" },
-  { label: "Facebook Group", color: "#4267b2" },
-  { label: "TikTok", color: "#000000" },
-  { label: "Instagram", color: "#e1306c" },
-  { label: "YouTube", color: "#ff0000" },
-  { label: "Line OA", color: "#06c755" },
-  { label: "Website", color: "#00a8ff" }
+  { label: "Story / FB Ads", color: "#1877f2" },
+  { label: "FB Page / Zeekr Club / TikTok", color: "#000000" },
+  { label: "FB REEL / IG REELS / TikTok", color: "#e1306c" },
+  { label: "FB Post / IG", color: "#a25ddc" },
+  { label: "TikTok / FB Page / LINE OA", color: "#06c755" },
+  { label: "REEL TIKTOK", color: "#ff0000" }
 ];
 
 const LIGHT_PRESET = { accent:"#ff6a3d", bgMain:"#eef1f6", cardBg:"#ffffff", textPrimary:"#1c2230", textSecondary:"#6b7386", borderColor:"#d7dce6", font:"system" };
@@ -420,18 +420,16 @@ function createStandardGroupTemplate(groupTitle = "August", groupColor = "#ff990
     collapsed: false,
     columns: [
       { id: "c_day", name: "Day", type: "select", options: JSON.parse(JSON.stringify(LEGACY_DAY_OPTIONS)) },
-      { id: "c_detail", name: "Detail", type: "text" },
-      { id: "c_date", name: "Date", type: "date" },
       { id: "c_social", name: "Channels", type: "select", options: JSON.parse(JSON.stringify(LEGACY_CHANNEL_OPTIONS)) },
-      { id: "c_staff", name: "Staff", type: "staff" },
       { id: "c_status", name: "Status", type: "select", options: JSON.parse(JSON.stringify(LEGACY_STATUS_OPTIONS)) }
     ],
     rows: [
-      {
-        id: "r1_" + Date.now(),
-        title: "Launch Post",
-        values: { c_day: "Monday", c_detail: "ໂພສໂປຣໂມຊັນຕົ້ນເດືອນ", c_date: "2026-08-01", c_social: "Facebook Page", c_staff: "s1", c_status: "In Progress" }
-      }
+      { id: "r1", title: "ໂປຣໂມດລາຍ Wrap ສະປອດ ກຶ່ງລຸ້ນ Zeekr 7X", values: { c_day: "ວັນພະຫັດ", c_social: "Story / FB Ads", c_status: "In Progress" } },
+      { id: "r2", title: "ເປີດໂຕຊິກເກີ ເກຣດ Premium Satin/Matte ກຶ່ງລຸ້ນ 8X", values: { c_day: "ວັນອາທິດ", c_social: "FB Page / Zeekr Club / TikTok", c_status: "Upcoming" } },
+      { id: "r3", title: "ພາທຸກຄົນມາເຈາະລຶກ ຄວາມເໜືອດັບ ແລະ ເທັກໂນໂລຊີສຸດລ້ຳກັບ ZEEKR 8X!", values: { c_day: "ວັນພຸດ", c_social: "FB REEL / IG REELS / TikTok", c_status: "Done" } },
+      { id: "r4", title: "ZEEKR 9X LUXURY BLACK", values: { c_day: "ວັນສຸກ", c_social: "FB Post / IG", c_status: "In Progress" } },
+      { id: "r5", title: "ໂປຣໂມດຟິມກັນຮອຍ PPF & Color Change ສຳລັບ Zeekr 007", values: { c_day: "ວັນເສົາ", c_social: "TikTok / FB Page / LINE OA", c_status: "Upcoming" } },
+      { id: "r6", title: "ແພັກເກັດຫຸ້ມເກາະກັນຮອຍ ຮອບຄັນ Zeekr 009", values: { c_day: "ວັນພຸດ", c_social: "REEL TIKTOK", c_status: "Done" } }
     ]
   };
 }
@@ -630,7 +628,7 @@ function exportCSV() {
   let lines = [];
   sheet.groups.forEach(group => {
     lines.push(csvEscape(group.title));
-    const headers = ["Item", ...group.columns.map(c => c.name)];
+    const headers = ["Marketing Activity", ...group.columns.map(c => c.name)];
     lines.push(headers.map(csvEscape).join(","));
     group.rows.forEach(row => {
       const vals = [row.title, ...group.columns.map(col => formatValueForExport(col, row.values[col.id]))];
@@ -671,7 +669,7 @@ function importJSONBackup(file) {
 /* ============================== DATA IMPORT ============================== */
 
 let importDraft = null;
-const IMPORT_ITEM_HEADERS = ["item", "item name", "title", "model", "model name", "ຮຸ່ນລົດ"];
+const IMPORT_ITEM_HEADERS = ["item", "item name", "title", "model", "model name", "ຮຸ່ນລົດ", "marketing activity"];
 
 function importKey(value) { return String(value || "").trim().toLowerCase().replace(/\s+/g, " "); }
 function importCell(record, names) {
@@ -877,8 +875,8 @@ function confirmDataImport() {
 function downloadImportTemplate() {
   const sheet = sheetsData[activeSheetIdx];
   const group = sheet.groups[0];
-  const headers = ["Record ID", "Item", ...group.columns.map(c => c.name)];
-  const example = ["", "Example item", ...group.columns.map(c => c.type === "date" ? new Date().toISOString().slice(0, 10) : "")];
+  const headers = ["Record ID", "Marketing Activity", ...group.columns.map(c => c.name)];
+  const example = ["", "Example activity", ...group.columns.map(c => c.type === "date" ? new Date().toISOString().slice(0, 10) : "")];
   downloadBlob([headers, example].map(row => row.map(csvEscape).join(",")).join("\n"), `${sheet.name}_import_template.csv`, "text/csv;charset=utf-8;");
 }
 
@@ -899,7 +897,7 @@ function doExportExcel() {
     let aoa = [];
     sheet.groups.forEach(group => {
       aoa.push([group.title]);
-      aoa.push(["Item", ...group.columns.map(c => c.name)]);
+      aoa.push(["Marketing Activity", ...group.columns.map(c => c.name)]);
       group.rows.forEach(row => {
         aoa.push([row.title, ...group.columns.map(col => formatValueForExport(col, row.values[col.id]))]);
       });
@@ -1150,7 +1148,7 @@ function renderBoard() {
             <thead>
               <tr>
                 <th class="col-select"><input type="checkbox" class="checkbox-custom"></th>
-                <th class="col-item">Item Name</th>
+                <th class="col-item">Marketing Activity</th>
                 ${headersHtml}
                 <th class="col-add-header" onclick="addColumn(${gIdx})">＋</th>
                 <th class="col-action"></th>
@@ -1335,7 +1333,7 @@ function updateRowTitle(gIdx, rIdx, title) { sheetsData[activeSheetIdx].groups[g
 
 function addRow(gIdx) {
   const group = sheetsData[activeSheetIdx].groups[gIdx];
-  const newRow = { id: "r_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4), title: "New Item", values: {} };
+  const newRow = { id: "r_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4), title: "New Activity", values: {} };
   const today = new Date().toISOString().split("T")[0];
   group.columns.forEach(col => {
     if (col.type === "select") newRow.values[col.id] = (col.options && col.options[0]) ? col.options[0].label : "";
