@@ -81,8 +81,6 @@
   [contenteditable="true"]:focus { background: var(--card-bg); box-shadow: 0 0 0 2px var(--accent); }
 
   .col-select { width: 38px; }
-  /* Keep table cells as table cells. Applying flex directly to <td>/<th> breaks
-     the table's column calculation and makes the next column overlap on mobile. */
   .col-item { width: 230px; text-align: left; padding: 4px 8px; }
   .col-item-content { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .col-item-content span[contenteditable] { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -324,9 +322,27 @@ const LEGACY_STATUS_OPTIONS = [
   { label: "Upcoming", color: "#ff7575" },
   { label: "Stuck", color: "#e2445c" }
 ];
-const LEGACY_SOCIAL_OPTIONS = [
-  { label: "Fb/IG", color: "#1877f2" },
-  { label: "Reel/Tiktok", color: "#000000" }
+
+/* 1. ຕົວເລືອກ Drop list ສຳລັບ Day (ວັນ) */
+const LEGACY_DAY_OPTIONS = [
+  { label: "Monday", color: "#e67e22" },
+  { label: "Tuesday", color: "#e84393" },
+  { label: "Wednesday", color: "#2ecc71" },
+  { label: "Thursday", color: "#f39c12" },
+  { label: "Friday", color: "#00cec9" },
+  { label: "Saturday", color: "#9b59b6" },
+  { label: "Sunday", color: "#e74c3c" }
+];
+
+/* 2. ຕົວເລືອກ Drop list ສຳລັບ Channels (ຊ່ອງທາງ) */
+const LEGACY_CHANNEL_OPTIONS = [
+  { label: "Facebook Page", color: "#1877f2" },
+  { label: "Facebook Group", color: "#4267b2" },
+  { label: "TikTok", color: "#000000" },
+  { label: "Instagram", color: "#e1306c" },
+  { label: "YouTube", color: "#ff0000" },
+  { label: "Line OA", color: "#06c755" },
+  { label: "Website", color: "#00a8ff" }
 ];
 
 const LIGHT_PRESET = { accent:"#ff6a3d", bgMain:"#eef1f6", cardBg:"#ffffff", textPrimary:"#1c2230", textSecondary:"#6b7386", borderColor:"#d7dce6", font:"system" };
@@ -349,7 +365,7 @@ function doPost(e) {
 
   if (data.sheetsData) {
     data.sheetsData.forEach(function (board) {
-      var name = String(board.name || 'Sheet').substring(0, 90).replace(/[\\[\\]\\*\\/\\\\\\?:]/g, '');
+      var name = String(board.name || 'Sheet').substring(0, 90).replace(/[\\['\\*\\/\\\\\\?:]/g, '');
       var sh = ss.getSheetByName(name);
       if (!sh) sh = ss.insertSheet(name);
       sh.clear();
@@ -403,9 +419,10 @@ function createStandardGroupTemplate(groupTitle = "August", groupColor = "#ff990
     color: groupColor,
     collapsed: false,
     columns: [
+      { id: "c_day", name: "Day", type: "select", options: JSON.parse(JSON.stringify(LEGACY_DAY_OPTIONS)) },
       { id: "c_detail", name: "Detail", type: "text" },
       { id: "c_date", name: "Date", type: "date" },
-      { id: "c_social", name: "Social Channel", type: "select", options: JSON.parse(JSON.stringify(LEGACY_SOCIAL_OPTIONS)) },
+      { id: "c_social", name: "Channels", type: "select", options: JSON.parse(JSON.stringify(LEGACY_CHANNEL_OPTIONS)) },
       { id: "c_staff", name: "Staff", type: "staff" },
       { id: "c_status", name: "Status", type: "select", options: JSON.parse(JSON.stringify(LEGACY_STATUS_OPTIONS)) }
     ],
@@ -413,7 +430,7 @@ function createStandardGroupTemplate(groupTitle = "August", groupColor = "#ff990
       {
         id: "r1_" + Date.now(),
         title: "Launch Post",
-        values: { c_detail: "ໂພສໂປຣໂມຊັນຕົ້ນເດືອນ", c_date: "2026-08-01", c_social: "Fb/IG", c_staff: "s1", c_status: "In Progress" }
+        values: { c_day: "Monday", c_detail: "ໂພສໂປຣໂມຊັນຕົ້ນເດືອນ", c_date: "2026-08-01", c_social: "Facebook Page", c_staff: "s1", c_status: "In Progress" }
       }
     ]
   };
@@ -472,7 +489,7 @@ function migrateLegacyColumns() {
       if (group.collapsed === undefined) group.collapsed = false;
       (group.columns || []).forEach(col => {
         if (col.type === "status") { col.type = "select"; col.options = col.options || JSON.parse(JSON.stringify(LEGACY_STATUS_OPTIONS)); }
-        if (col.type === "social") { col.type = "select"; col.options = col.options || JSON.parse(JSON.stringify(LEGACY_SOCIAL_OPTIONS)); }
+        if (col.type === "social") { col.type = "select"; col.options = col.options || JSON.parse(JSON.stringify(LEGACY_CHANNEL_OPTIONS)); }
       });
       (group.rows || []).forEach(row => { row.values = row.values || {}; });
     });
