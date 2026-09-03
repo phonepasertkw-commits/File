@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manignom Auto Group</title>
+<style>
+  :root {
+    --bg-main: #eef1f6;
+    --card-bg: #ffffff;
+    --border-color: #d7dce6;
+    --border-light: #e9edf3;
+    --text-primary: #1c2230;
+    --text-secondary: #6b7386;
+    --accent: #ff6a3d;
+    --accent-soft: rgba(255,106,61,0.12);
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; font-family: var(--font-main); }
+  body { background-color: var(--bg-main); color: var(--text-primary); margin: 0; padding: 20px 40px; transition: background-color .2s, color .2s; }
+
+  .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .board-title-container { display: flex; align-items: center; gap: 8px; font-size: 24px; font-weight: 800; letter-spacing: -0.3px; }
+  .header-btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn-primary { background: var(--accent); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13.5px; }
+  .btn-secondary { background: #676879; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13.5px; }
+  .btn-primary:hover, .btn-secondary:hover { opacity: 0.88; }
+
+  .sync-status { font-size: 12.5px; font-weight: 700; color: #00c875; display: flex; align-items: center; gap: 5px; }
+  .sync-status.syncing { color: #fdab3d; }
+
+  .sheets-bar { display: flex; align-items: center; gap: 6px; border-bottom: 2px solid var(--border-color); margin-bottom: 14px; overflow-x: auto; }
+  .sheet-tab {
+    padding: 8px 14px; background: var(--border-light); border-radius: 8px 8px 0 0;
+    font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    user-select: none; transition: all 0.2s ease; white-space: nowrap;
+  }
+  .sheet-tab.active {
+    background: var(--card-bg); border: 2px solid var(--border-color); border-bottom: 2px solid var(--card-bg); margin-bottom: -2px;
+  }
+  .add-sheet-btn { background: none; border: none; font-size: 15px; cursor: pointer; color: var(--accent); font-weight: bold; padding: 8px 12px; white-space: nowrap; }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  #searchInput { padding: 9px 14px; border: 1px solid var(--border-color); border-radius: 20px; min-width: 240px; background: var(--card-bg); color: var(--text-primary); font-size: 13px; outline: none; }
+  #searchInput:focus { box-shadow: 0 0 0 2px var(--accent-soft); border-color: var(--accent); }
+
+  .stat-chip-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat-chip { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 6px 16px; min-width: 74px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .stat-chip-num { font-size: 18px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .stat-chip-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+
+  .group-container { margin-bottom: 30px; border-left: 4px solid var(--accent); padding-left: 12px; }
+  .group-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+  .group-title-wrapper { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; }
+
+  .color-picker { border: none; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; background: transparent; padding: 0; flex-shrink: 0; }
+  .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+  .color-picker::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+  .table-wrapper { overflow-x: auto; background: var(--card-bg); border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  table { width: 100%; border-collapse: collapse; min-width: 1000px; table-layout: fixed; }
+
+  th {
+    font-size: 13px; font-weight: 700; color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-light);
+    padding: 8px 10px; text-align: center; background: var(--card-bg);
+  }
+  th .th-content { display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .drag-handle { cursor: grab; opacity: 0.45; font-size: 12px; user-select: none; }
+  .drag-handle:hover { opacity: 1; color: var(--accent); }
+
+  td {
+    height: 44px; border-bottom: 1px solid var(--border-light); border-right: 1px solid var(--border-light);
+    padding: 0; font-size: 13.5px; vertical-align: middle; text-align: center;
+  }
+  tr:hover td { background-color: var(--accent-soft); }
+
+  [contenteditable="true"] { outline: none; border-radius: 4px; padding: 2px 4px; transition: background 0.2s; }
+  [contenteditable="true"]:hover { background: var(--accent-soft); }
+  [contenteditable="true"]:focus { background: var(--card-bg); box-shadow: 0 0 0 2px var(--accent); }
+
+  .col-select { width: 38px; }
+  /* Keep table cells as table cells. Applying flex directly to <td>/<th> breaks
+     the table's column calculation and makes the next column overlap on mobile. */
+  .col-item { width: 230px; text-align: left; padding: 4px 8px; }
+  .col-item-content { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .col-item-content span[contenteditable] { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .col-dynamic { width: 160px; }
+  .col-action { width: 64px; }
+  .col-add-header { width: 42px; cursor: pointer; font-size: 18px; color: var(--accent); }
+
+  .dropdown-select {
+    width: 100%; height: 100%; border: none; outline: none;
+    font-size: 12.5px; font-weight: 700; text-align-last: center; cursor: pointer;
+  }
+  .dropdown-select option { background-color: #fff !important; color: #333 !important; }
+
+  .date-picker-input {
+    width: 100%; height: 100%; border: none; outline: none;
+    background: transparent; text-align: center; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-primary);
+  }
+
+  .text-cell { padding: 4px 8px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  .icon-btn { background: none; border: none; cursor: pointer; opacity: 0.6; font-size: 12px; color: var(--text-secondary); padding: 2px; }
+  .icon-btn:hover { opacity: 1; color: #e2445c; }
+
+  .add-item-row td { border-bottom: none; color: var(--text-secondary); cursor: pointer; text-align: left; padding: 4px 8px; }
+  .add-item-row:hover td { background-color: var(--accent-soft); color: var(--accent); }
+  .checkbox-custom { cursor: pointer; accent-color: var(--accent); }
+
+  input[type=range].progress-range { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 3px; flex: 1; cursor: pointer; }
+  input[type=range].progress-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); }
+  input[type=range].progress-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); }
+  input[type=range].progress-range::-moz-range-track { height: 6px; border-radius: 3px; background: transparent; }
+
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;
+  }
+  .modal-content { background: var(--card-bg); color: var(--text-primary); padding: 24px; border-radius: 10px; width: 420px; max-width: 90%; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 18px; font-weight: 800; }
+  .staff-item-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .staff-item-row input[type="text"] { flex: 1; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--card-bg); color: var(--text-primary); }
+  .add-staff-form { display: flex; gap: 8px; margin-top: 16px; border-top: 1px solid var(--border-light); padding-top: 16px; }
+
+  @media print {
+    .app-header .header-btns, .toolbar #searchInput, .sheets-bar .add-sheet-btn,
+    .icon-btn, .add-item-row, .col-action, .col-add-header, .drag-handle { display: none !important; }
+    body { padding: 10px; background: #fff; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="app-header">
+    <div class="board-title-container">
+      <span id="boardTitle" contenteditable="true" onblur="updateBoardTitle(this.innerText)">Manignom Auto Group</span>
+    </div>
+    <div class="header-btns">
+      <div class="sync-status" id="syncStatus">☁️ Ready</div>
+      <button class="btn-secondary" onclick="openStaffModal()">👥 Staff</button>
+      <button class="btn-secondary" onclick="openReportModal()">📊 ລາຍງານ</button>
+      <button class="btn-secondary" onclick="openSettingsModal()">⚙️ ຕັ້ງຄ່າ</button>
+      <button class="btn-primary" onclick="addNewGroup()">➕ ເພີ່ມກຸ່ມ</button>
+    </div>
+  </div>
+
+  <div class="sheets-bar" id="sheetsBar"></div>
+
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder="🔍 ຄົ້ນຫາລາຍການ..." oninput="handleSearch(this.value)">
+    <div class="stat-chip-row" id="statChipRow"></div>
+  </div>
+
+  <div id="boardContainer"></div>
+
+  <!-- Staff Modal -->
+  <div class="modal-overlay" id="staffModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>👥 ຈັດການລາຍຊື່ Staff</span>
+        <button class="icon-btn" onclick="closeStaffModal()" style="font-size:16px;">✕</button>
+      </div>
+      <div id="staffListContainer"></div>
+      <div class="add-staff-form">
+        <input type="text" id="newStaffName" placeholder="ຊື່ Staff ໃໝ່..." style="flex:1; padding:6px 10px; border:1px solid var(--border-color); border-radius:4px; background:var(--card-bg); color:var(--text-primary);">
+        <input type="color" id="newStaffColor" value="#0073ea" class="color-picker" style="height:32px; width:32px;">
+        <button class="btn-primary" onclick="addNewStaff()">ເພີ່ມ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Column Modal -->
+  <div class="modal-overlay" id="addColumnModal">
+    <div class="modal-content">
+      <div class="modal-header"><span>➕ ເພີ່ມຄໍລໍາໃໝ່</span><button class="icon-btn" onclick="closeAddColumnModal()" style="font-size:16px;">✕</button></div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <label style="font-size:13px;font-weight:600;">ຊື່ຄໍລໍາ (Column name)
+          <input type="text" id="newColName" placeholder="e.g. Budget" style="width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:6px;margin-top:4px;background:var(--card-bg);color:var(--text-primary);">
+        </label>
+        <label style="font-size:13px;font-weight:600;">ປະເພດຂໍ້ມູນ (Type)
+          <select id="newColType" style="width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:6px;margin-top:4px;background:var(--card-bg);color:var(--text-primary);">
+            <option value="text">📝 Text</option>
+            <option value="longtext">📄 Long text / Notes</option>
+            <option value="number">🔢 Number</option>
+            <option value="date">📅 Date</option>
+            <option value="checkbox">☑️ Checkbox</option>
+            <option value="progress">📊 Progress %</option>
+            <option value="rating">⭐ Rating</option>
+            <option value="link">🔗 Link</option>
+            <option value="select">🏷️ Choice / Label (ສີກຳນົດເອງ)</option>
+            <option value="staff">👤 Staff / People</option>
+          </select>
+        </label>
+        <button class="btn-primary" onclick="confirmAddColumn()">ເພີ່ມຄໍລໍາ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Options (choice/label) Editor Modal -->
+  <div class="modal-overlay" id="optionsModal">
+    <div class="modal-content">
+      <div class="modal-header"><span>🏷️ ແກ້ໄຂຕົວເລືອກ</span><button class="icon-btn" onclick="closeOptionsEditor()" style="font-size:16px;">✕</button></div>
+      <div id="optionsListContainer"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn-secondary" onclick="addOptionRow()">➕ ເພີ່ມຕົວເລືອກ</button>
+        <button class="btn-primary" onclick="saveOptionsEditor()">ບັນທຶກ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content" style="width:500px;max-height:85vh;overflow-y:auto;">
+      <div class="modal-header"><span>⚙️ ຕັ້ງຄ່າ</span><button class="icon-btn" onclick="closeSettingsModalCancel()" style="font-size:16px;">✕</button></div>
+
+      <div style="margin-bottom:20px;">
+        <div style="font-weight:800;margin-bottom:8px;">🔗 Google Sheets Sync</div>
+        <input type="text" id="gsUrlInput" placeholder="https://script.google.com/macros/s/xxx/exec" style="width:100%;padding:8px 10px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);">
+        <button class="btn-primary" style="margin-top:8px;" onclick="saveGoogleUrl()">ບັນທຶກ URL</button>
+        <details style="margin-top:10px;">
+          <summary style="cursor:pointer;color:var(--accent);font-weight:700;font-size:13px;">📋 ວິທີຕັ້ງຄ່າ Google Apps Script (ຄັ້ງດຽວ)</summary>
+          <ol style="font-size:12.5px;line-height:1.7;padding-left:18px;color:var(--text-secondary);">
+            <li>ເປີດ <b>sheets.google.com</b> ແລ້ວສ້າງ Spreadsheet ໃໝ່</li>
+            <li>ໄປທີ່ເມນູ <b>Extensions → Apps Script</b></li>
+            <li>ລຶບໂຄ້ດເກົ່າໃນໜ້າຈໍທັງໝົດ, ວາງໂຄ້ດຂ້າງລຸ່ມນີ້ແທນ</li>
+            <li>ກົດ <b>Deploy → New deployment</b> → ເລືອກ type "Web app"</li>
+            <li>Execute as: <b>Me</b>, Who has access: <b>Anyone</b></li>
+            <li>ກົດ <b>Deploy</b>, copy URL ທີ່ໄດ້ ມາໃສ່ຊ່ອງຂ້າງເທິງ ແລ້ວກົດ "ບັນທຶກ URL"</li>
+          </ol>
+          <textarea id="appsScriptCode" readonly style="width:100%;height:150px;font-family:monospace;font-size:10.5px;padding:8px;border:1px solid var(--border-color);border-radius:6px;background:#1e212b;color:#d7dce6;"></textarea>
+          <button class="btn-secondary" style="margin-top:6px;" onclick="copyAppsScriptCode()">📋 Copy ໂຄ້ດ</button>
+        </details>
+      </div>
+
+      <div>
+        <div style="font-weight:800;margin-bottom:8px;">🎨 ໜ້າຕາ ແລະ ສີ (Appearance)</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button class="btn-secondary" onclick="applyPreset('light')">☀️ Light preset</button>
+          <button class="btn-secondary" onclick="applyPreset('dark')">🌙 Dark preset</button>
+        </div>
+        <div id="themeGrid"></div>
+        <label style="display:block;margin-top:10px;font-size:13px;font-weight:600;">ຟອນ (Font)
+          <select id="fontSelect" onchange="updateFontPreview()" style="width:100%;padding:6px;border:1px solid var(--border-color);border-radius:6px;margin-top:4px;background:var(--card-bg);color:var(--text-primary);">
+            <option value="system">System Sans</option>
+            <option value="serif">Serif</option>
+            <option value="mono">Monospace</option>
+          </select>
+        </label>
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button class="btn-primary" onclick="saveThemeSettings()">ບັນທຶກ ແລະ ນຳໃຊ້</button>
+          <button class="btn-secondary" onclick="resetThemeDefault()">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report / Export Modal -->
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal-content" style="width:540px;max-height:85vh;overflow-y:auto;">
+      <div class="modal-header"><span>📊 ລາຍງານ ແລະ ນຳອອກຂໍ້ມູນ</span><button class="icon-btn" onclick="closeReportModal()" style="font-size:16px;">✕</button></div>
+      <div id="reportStatsContainer"></div>
+      <div style="border-top:1px solid var(--border-light);margin-top:16px;padding-top:16px;">
+        <div style="font-weight:800;margin-bottom:8px;">⬇️ ນຳອອກຂໍ້ມູນ (Export)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <button class="btn-secondary" onclick="exportCSV()">📄 CSV (Sheet ນີ້)</button>
+          <button class="btn-secondary" onclick="exportExcel()">📊 Excel (.xlsx ທັງໝົດ)</button>
+          <button class="btn-secondary" onclick="exportJSONBackup()">💾 JSON Backup</button>
+          <button class="btn-secondary" onclick="window.print()">🖨️ Print</button>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="font-weight:800;margin-bottom:6px;font-size:13px;">⬆️ ນຳເຂົ້າຂໍ້ມູນ (Import)</div>
+          <button class="btn-primary" onclick="openImportModal()">⬆️ Import CSV / Excel / JSON</button>
+          <button class="btn-secondary" onclick="downloadImportTemplate()">⬇️ Download Template</button>
+          <div style="font-size:11.5px;color:var(--text-secondary);margin-top:7px;line-height:1.45;">CSV/Excel ຈະເພີ່ມລາຍການເຂົ້າ Board. JSON Backup ຈະກູ້ຄືນຂໍ້ມູນທັງໝົດ.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Data Modal -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal-content" style="width:720px;max-height:85vh;overflow-y:auto;">
+      <div class="modal-header"><span>⬆️ Import Data</span><button class="icon-btn" onclick="closeImportModal()" style="font-size:16px;">✕</button></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <label style="font-size:13px;font-weight:700;">ເລືອກໄຟລ໌
+          <input id="dataImportFile" type="file" accept=".csv,.xlsx,.xls,.json,text/csv,application/json" onchange="readImportFile(this.files[0])" style="display:block;width:100%;margin-top:6px;">
+        </label>
+        <label style="font-size:13px;font-weight:700;">ນຳເຂົ້າໄປທີ່ Sheet
+          <select id="importSheetSelect" onchange="renderImportGroupOptions()" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);"></select>
+        </label>
+        <label style="font-size:13px;font-weight:700;">ນຳເຂົ້າໄປທີ່ Group
+          <select id="importGroupSelect" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);"></select>
+        </label>
+        <label style="font-size:13px;font-weight:700;">ຮູບແບບການນຳເຂົ້າ
+          <select id="importModeSelect" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);">
+            <option value="upsert">ເພີ່ມ ຫຼື ອັບເດດຕາມ Record ID</option>
+            <option value="append">ເພີ່ມລາຍການທັງໝົດ</option>
+          </select>
+        </label>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin:12px 0 6px;line-height:1.5;">ຕ້ອງມີຖັນ <b>Item</b>. ຊື່ຖັນອື່ນໆ ຕ້ອງກົງກັບຊື່ Column ໃນ Group. ໃຊ້ <b>Record ID</b> ເມື່ອຕ້ອງການອັບເດດລາຍການເກົ່າ.</div>
+      <div id="importPreview" style="border:1px solid var(--border-light);border-radius:8px;padding:10px;min-height:78px;font-size:12px;overflow:auto;color:var(--text-secondary);">ເລືອກໄຟລ໌ເພື່ອເບິ່ງຕົວຢ່າງ</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+        <button class="btn-secondary" onclick="closeImportModal()">ຍົກເລີກ</button>
+        <button class="btn-primary" id="confirmImportBtn" onclick="confirmDataImport()" disabled>✅ ຢືນຢັນ Import</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ============================== CONSTANTS / DEFAULTS ============================== */
+
+const LEGACY_STATUS_OPTIONS = [
+  { label: "Done", color: "#00c875" },
+  { label: "In Progress", color: "#fdab3d" },
+  { label: "Upcoming", color: "#ff7575" },
+  { label: "Stuck", color: "#e2445c" }
+];
+const LEGACY_SOCIAL_OPTIONS = [
+  { label: "Fb/IG", color: "#1877f2" },
+  { label: "Reel/Tiktok", color: "#000000" }
+];
+
+const LIGHT_PRESET = { accent:"#ff6a3d", bgMain:"#eef1f6", cardBg:"#ffffff", textPrimary:"#1c2230", textSecondary:"#6b7386", borderColor:"#d7dce6", font:"system" };
+const DARK_PRESET  = { accent:"#ff8a5c", bgMain:"#14161c", cardBg:"#1e212b", textPrimary:"#e8eaf0", textSecondary:"#8b93a7", borderColor:"#2c313d", font:"system" };
+
+const APPS_SCRIPT_CODE = `function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('_BoardData');
+  var json = sheet ? sheet.getRange('A1').getValue() : '';
+  return ContentService.createTextOutput(json || '{}').setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var data = JSON.parse(e.postData.contents);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  var raw = ss.getSheetByName('_BoardData');
+  if (!raw) { raw = ss.insertSheet('_BoardData'); raw.hideSheet(); }
+  raw.getRange('A1').setValue(JSON.stringify(data));
+
+  if (data.sheetsData) {
+    data.sheetsData.forEach(function (board) {
+      var name = String(board.name || 'Sheet').substring(0, 90).replace(/[\\[\\]\\*\\/\\\\\\?:]/g, '');
+      var sh = ss.getSheetByName(name);
+      if (!sh) sh = ss.insertSheet(name);
+      sh.clear();
+      var row = 1;
+      (board.groups || []).forEach(function (group) {
+        var headers = ['Item'].concat((group.columns || []).map(function (c) { return c.name; }));
+        sh.getRange(row, 1, 1, headers.length).setValues([headers]);
+        sh.getRange(row, 1, 1, headers.length).setFontWeight('bold');
+        row++;
+        (group.rows || []).forEach(function (r) {
+          var line = [r.title || ''];
+          (group.columns || []).forEach(function (c) {
+            var v = r.values ? r.values[c.id] : '';
+            if (c.type === 'staff') {
+              var staff = (data.staffOptions || []).filter(function (s) { return s.id === v; })[0];
+              v = staff ? staff.name : '';
+            }
+            if (c.type === 'checkbox') v = v ? 'Yes' : 'No';
+            line.push(v === null || v === undefined ? '' : v);
+          });
+          sh.getRange(row, 1, 1, line.length).setValues([line]);
+          row++;
+        });
+        row++;
+      });
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok' })).setMimeType(ContentService.MimeType.JSON);
+}`;
+
+/* ============================== STATE ============================== */
+
+let boardTitle = "Manignom Auto Group";
+let googleScriptUrl = "https://script.google.com/macros/s/AKfycbyexSfl1GUFY4nrzs15oG-5tcPTGlgBYTduXRicQjYGIpHzCKgzFk8-IMi1Y53KR5a7/exec";
+let theme = JSON.parse(JSON.stringify(LIGHT_PRESET));
+let draftTheme = null;
+let themeBeforeEdit = null;
+let searchQuery = "";
+
+let staffOptions = [
+  { id: "s1", name: "Helen Fielding", color: "#a25ddc" },
+  { id: "s2", name: "Kate Morton", color: "#579bfc" },
+  { id: "s3", name: "Alex Michaelides", color: "#808080" }
+];
+
+function createStandardGroupTemplate(groupTitle = "August", groupColor = "#ff9900") {
+  return {
+    id: "g_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
+    title: groupTitle,
+    color: groupColor,
+    collapsed: false,
+    columns: [
+      { id: "c_detail", name: "Detail", type: "text" },
+      { id: "c_date", name: "Date", type: "date" },
+      { id: "c_social", name: "Social Channel", type: "select", options: JSON.parse(JSON.stringify(LEGACY_SOCIAL_OPTIONS)) },
+      { id: "c_staff", name: "Staff", type: "staff" },
+      { id: "c_status", name: "Status", type: "select", options: JSON.parse(JSON.stringify(LEGACY_STATUS_OPTIONS)) }
+    ],
+    rows: [
+      {
+        id: "r1_" + Date.now(),
+        title: "Launch Post",
+        values: { c_detail: "ໂພສໂປຣໂມຊັນຕົ້ນເດືອນ", c_date: "2026-08-01", c_social: "Fb/IG", c_staff: "s1", c_status: "In Progress" }
+      }
+    ]
+  };
+}
+
+let activeSheetIdx = 0;
+let sheetsData = [
+  { id: "s_zeekr", name: "ZEEKR", color: "#ff9900", groups: [createStandardGroupTemplate("August", "#ff9900")] },
+  { id: "s_lynk", name: "LYNK&CO", color: "#00e6b8", groups: [createStandardGroupTemplate("August", "#00e6b8")] },
+  { id: "s_mhero", name: "MHERO", color: "#ffd700", groups: [createStandardGroupTemplate("August", "#ffd700")] },
+  { id: "s_chev", name: "CHEVROLET", color: "#0066ff", groups: [createStandardGroupTemplate("August", "#0066ff")] },
+  { id: "s_fari", name: "FARIZON", color: "#66cc00", groups: [createStandardGroupTemplate("August", "#66cc00")] }
+];
+
+let draggedColIdx = null, draggedGroupIdx = null;
+let draggedRowIdx = null, draggedRowGroupIdx = null;
+let addColumnTargetGroup = null;
+let editingOptionsRef = null;
+let editingOptionsDraft = [];
+
+/* ============================== UTIL ============================== */
+
+function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function escAttr(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function hexToRgb(hex) {
+  hex = (hex || "#999999").replace("#", "");
+  if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+  const num = parseInt(hex, 16) || 0x999999;
+  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+}
+function rgbaFromHex(hex, alpha) { const { r, g, b } = hexToRgb(hex); return `rgba(${r},${g},${b},${alpha})`; }
+function lightenHex(hex, amount) {
+  const { r, g, b } = hexToRgb(hex);
+  const lr = Math.round(r + (255 - r) * amount), lg = Math.round(g + (255 - g) * amount), lb = Math.round(b + (255 - b) * amount);
+  return `rgb(${lr},${lg},${lb})`;
+}
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+function csvEscape(v) { v = (v == null ? "" : String(v)); if (/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"'; return v; }
+function formatValueForExport(col, val) {
+  if (col.type === "staff") { const s = staffOptions.find(s => s.id === val); return s ? s.name : ""; }
+  if (col.type === "checkbox") return val ? "Yes" : "No";
+  return val == null ? "" : val;
+}
+
+/* ============================== MIGRATION / THEME ============================== */
+
+function migrateLegacyColumns() {
+  sheetsData.forEach(sheet => {
+    (sheet.groups || []).forEach(group => {
+      if (group.collapsed === undefined) group.collapsed = false;
+      (group.columns || []).forEach(col => {
+        if (col.type === "status") { col.type = "select"; col.options = col.options || JSON.parse(JSON.stringify(LEGACY_STATUS_OPTIONS)); }
+        if (col.type === "social") { col.type = "select"; col.options = col.options || JSON.parse(JSON.stringify(LEGACY_SOCIAL_OPTIONS)); }
+      });
+      (group.rows || []).forEach(row => { row.values = row.values || {}; });
+    });
+  });
+}
+
+function applyTheme(t) {
+  const root = document.documentElement.style;
+  root.setProperty("--accent", t.accent);
+  root.setProperty("--accent-soft", rgbaFromHex(t.accent, 0.12));
+  root.setProperty("--bg-main", t.bgMain);
+  root.setProperty("--card-bg", t.cardBg);
+  root.setProperty("--text-primary", t.textPrimary);
+  root.setProperty("--text-secondary", t.textSecondary);
+  root.setProperty("--border-color", t.borderColor);
+  root.setProperty("--border-light", lightenHex(t.borderColor, 0.5));
+  const fontMap = {
+    system: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`,
+    serif: `Georgia, "Times New Roman", serif`,
+    mono: `"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace`
+  };
+  root.setProperty("--font-main", fontMap[t.font] || fontMap.system);
+}
+
+/* ============================== BOARD TITLE ============================== */
+
+function updateBoardTitle(t) {
+  boardTitle = t;
+  document.title = t;
+  try { localStorage.setItem("MAG_TITLE", t); } catch (e) {}
+}
+
+/* ============================== SEARCH / STATS ============================== */
+
+function handleSearch(val) { searchQuery = val.trim().toLowerCase(); renderBoard(); }
+
+function matchesSearch(row, columns, q) {
+  if (row.title && row.title.toLowerCase().includes(q)) return true;
+  return columns.some(col => {
+    const val = row.values[col.id];
+    if (val === null || val === undefined || val === "") return false;
+    if (col.type === "staff") { const s = staffOptions.find(s => s.id === val); return !!(s && s.name.toLowerCase().includes(q)); }
+    if (col.type === "checkbox") return false;
+    return String(val).toLowerCase().includes(q);
+  });
+}
+
+function computeReportStats() {
+  const sheet = sheetsData[activeSheetIdx];
+  let totalItems = 0;
+  const selectBreakdown = {};
+  const staffCounts = {};
+  let progressSum = 0, progressCount = 0;
+
+  sheet.groups.forEach(group => {
+    group.rows.forEach(row => {
+      totalItems++;
+      group.columns.forEach(col => {
+        const val = row.values[col.id];
+        if (col.type === "select") {
+          selectBreakdown[col.name] = selectBreakdown[col.name] || {};
+          const opt = (col.options || []).find(o => o.label === val);
+          const key = val || "(ບໍ່ໄດ້ລະບຸ)";
+          if (!selectBreakdown[col.name][key]) selectBreakdown[col.name][key] = { count: 0, color: opt ? opt.color : "#ccc" };
+          selectBreakdown[col.name][key].count++;
+        } else if (col.type === "staff") {
+          const s = staffOptions.find(s => s.id === val);
+          const name = s ? s.name : "(ບໍ່ໄດ້ມອບໝາຍ)";
+          staffCounts[name] = (staffCounts[name] || 0) + 1;
+        } else if (col.type === "progress") {
+          progressSum += parseFloat(val) || 0; progressCount++;
+        }
+      });
+    });
+  });
+
+  return {
+    totalItems,
+    groupCount: sheet.groups.length,
+    selectBreakdown,
+    staffCounts,
+    avgProgress: progressCount ? Math.round(progressSum / progressCount) : null
+  };
+}
+
+function renderStatChips() {
+  const el = document.getElementById("statChipRow");
+  if (!el) return;
+  const stats = computeReportStats();
+  let html = `
+    <div class="stat-chip"><div class="stat-chip-num">${stats.totalItems}</div><div class="stat-chip-label">ລາຍການ</div></div>
+    <div class="stat-chip"><div class="stat-chip-num">${stats.groupCount}</div><div class="stat-chip-label">ກຸ່ມ</div></div>
+    <div class="stat-chip"><div class="stat-chip-num">${Object.keys(stats.staffCounts).length}</div><div class="stat-chip-label">Staff</div></div>
+  `;
+  if (stats.avgProgress !== null) html += `<div class="stat-chip"><div class="stat-chip-num">${stats.avgProgress}%</div><div class="stat-chip-label">Progress</div></div>`;
+  el.innerHTML = html;
+}
+
+function barListHTML(dataObj, fallbackColor) {
+  const entries = Object.entries(dataObj);
+  if (!entries.length) return `<div style="font-size:12px;color:var(--text-secondary);">ບໍ່ມີຂໍ້ມູນ</div>`;
+  const max = Math.max(...entries.map(([, v]) => (typeof v === "object" ? v.count : v)), 1);
+  return entries.map(([label, v]) => {
+    const count = typeof v === "object" ? v.count : v;
+    const color = typeof v === "object" ? v.color : (fallbackColor || "var(--accent)");
+    const pct = Math.round((count / max) * 100);
+    return `<div style="margin-bottom:7px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>${escHtml(label)}</span><span>${count}</span></div>
+      <div style="background:var(--border-light);border-radius:4px;height:10px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${color};"></div></div>
+    </div>`;
+  }).join("");
+}
+
+function openReportModal() {
+  const stats = computeReportStats();
+  let html = `
+    <div class="stat-chip-row" style="margin-bottom:14px;">
+      <div class="stat-chip"><div class="stat-chip-num">${stats.totalItems}</div><div class="stat-chip-label">ລາຍການທັງໝົດ</div></div>
+      <div class="stat-chip"><div class="stat-chip-num">${stats.groupCount}</div><div class="stat-chip-label">ກຸ່ມ</div></div>
+      ${stats.avgProgress !== null ? `<div class="stat-chip"><div class="stat-chip-num">${stats.avgProgress}%</div><div class="stat-chip-label">Progress ສະເລ່ຍ</div></div>` : ""}
+    </div>
+  `;
+  Object.entries(stats.selectBreakdown).forEach(([colName, breakdown]) => {
+    html += `<div style="font-weight:800;font-size:13px;margin:10px 0 4px;">${escHtml(colName)}</div>` + barListHTML(breakdown);
+  });
+  if (Object.keys(stats.staffCounts).length) {
+    html += `<div style="font-weight:800;font-size:13px;margin:10px 0 4px;">👤 ວຽກຕໍ່ Staff</div>` + barListHTML(stats.staffCounts, "#579bfc");
+  }
+  document.getElementById("reportStatsContainer").innerHTML = html;
+  document.getElementById("reportModal").style.display = "flex";
+}
+function closeReportModal() { document.getElementById("reportModal").style.display = "none"; }
+
+/* ============================== EXPORT / IMPORT ============================== */
+
+function exportCSV() {
+  const sheet = sheetsData[activeSheetIdx];
+  let lines = [];
+  sheet.groups.forEach(group => {
+    lines.push(csvEscape(group.title));
+    const headers = ["Item", ...group.columns.map(c => c.name)];
+    lines.push(headers.map(csvEscape).join(","));
+    group.rows.forEach(row => {
+      const vals = [row.title, ...group.columns.map(col => formatValueForExport(col, row.values[col.id]))];
+      lines.push(vals.map(csvEscape).join(","));
+    });
+    lines.push("");
+  });
+  downloadBlob(lines.join("\n"), `${sheet.name}_export.csv`, "text/csv;charset=utf-8;");
+}
+
+function exportJSONBackup() {
+  const backup = { sheetsData, staffOptions, theme, boardTitle, exportedAt: new Date().toISOString() };
+  downloadBlob(JSON.stringify(backup, null, 2), `manignom_backup_${Date.now()}.json`, "application/json");
+}
+
+function importJSONBackup(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.sheetsData) { sheetsData = data.sheetsData; migrateLegacyColumns(); }
+      if (data.staffOptions) staffOptions = data.staffOptions;
+      if (data.theme) { theme = data.theme; applyTheme(theme); try { localStorage.setItem("MAG_THEME", JSON.stringify(theme)); } catch (e2) {} }
+      if (data.boardTitle) { boardTitle = data.boardTitle; document.getElementById("boardTitle").innerText = boardTitle; }
+      activeSheetIdx = 0;
+      saveToLocalCache();
+      renderBoard();
+      closeReportModal();
+      alert("✅ ນຳເຂົ້າຂໍ້ມູນສຳເລັດ!");
+    } catch (err) {
+      alert("❌ ໄຟລ໌ບໍ່ຖືກຕ້ອງ: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ============================== DATA IMPORT ============================== */
+
+let importDraft = null;
+
+function importKey(value) { return String(value || "").trim().toLowerCase().replace(/\s+/g, " "); }
+function importCell(record, names) {
+  const keys = Object.keys(record || {});
+  const key = keys.find(k => names.includes(importKey(k)));
+  return key === undefined ? "" : record[key];
+}
+
+function openImportModal() {
+  importDraft = null;
+  document.getElementById("dataImportFile").value = "";
+  document.getElementById("confirmImportBtn").disabled = true;
+  document.getElementById("importPreview").innerText = "ເລືອກໄຟລ໌ເພື່ອເບິ່ງຕົວຢ່າງ";
+  const sheetSelect = document.getElementById("importSheetSelect");
+  sheetSelect.innerHTML = sheetsData.map((sheet, i) => `<option value="${i}" ${i === activeSheetIdx ? "selected" : ""}>${escHtml(sheet.name)}</option>`).join("");
+  renderImportGroupOptions();
+  closeReportModal();
+  document.getElementById("importModal").style.display = "flex";
+}
+function closeImportModal() { document.getElementById("importModal").style.display = "none"; }
+function renderImportGroupOptions() {
+  const sheetIndex = Number(document.getElementById("importSheetSelect").value);
+  const groupSelect = document.getElementById("importGroupSelect");
+  const groups = (sheetsData[sheetIndex] || {}).groups || [];
+  groupSelect.innerHTML = groups.map((group, i) => `<option value="${i}">${escHtml(group.title)}</option>`).join("");
+  if (importDraft) renderImportPreview();
+}
+
+function loadSheetJSForImport() {
+  if (typeof XLSX !== "undefined") return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("ບໍ່ສາມາດໂຫຼດ Excel library ໄດ້"));
+    document.head.appendChild(script);
+  });
+}
+
+function parseCSVRows(text) {
+  const rows = [], row = [];
+  let current = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i], next = text[i + 1];
+    if (char === '"' && quoted && next === '"') { current += '"'; i++; }
+    else if (char === '"') quoted = !quoted;
+    else if (char === "," && !quoted) { row.push(current); current = ""; }
+    else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") i++;
+      row.push(current); current = "";
+      if (row.some(v => String(v).trim() !== "")) rows.push(row.splice(0)); else row.length = 0;
+    } else current += char;
+  }
+  row.push(current);
+  if (row.some(v => String(v).trim() !== "")) rows.push(row);
+  if (!rows.length) return [];
+  const headers = rows.shift().map((v, i) => String(v).trim().replace(i === 0 ? /^\uFEFF/ : /$^/, ""));
+  return rows.map(values => Object.fromEntries(headers.map((h, i) => [h, values[i] === undefined ? "" : values[i]])));
+}
+
+async function readImportFile(file) {
+  if (!file) return;
+  const preview = document.getElementById("importPreview");
+  const confirmButton = document.getElementById("confirmImportBtn");
+  confirmButton.disabled = true;
+  preview.innerText = "ກຳລັງອ່ານໄຟລ໌...";
+  try {
+    const extension = (file.name.split(".").pop() || "").toLowerCase();
+    if (file.size > 5 * 1024 * 1024) throw new Error("ໄຟລ໌ຕ້ອງນ້ອຍກວ່າ 5 MB");
+    if (extension === "json") {
+      const data = JSON.parse(await file.text());
+      if (data && data.sheetsData) {
+        if (!confirm("JSON Backup ຈະຂຽນທັບ Board ທັງໝົດ. ຕ້ອງການສືບຕໍ່ບໍ?")) return;
+        importJSONBackup(file);
+        closeImportModal();
+        return;
+      }
+      importDraft = Array.isArray(data) ? data : (Array.isArray(data.records) ? data.records : null);
+      if (!importDraft) throw new Error("JSON ຕ້ອງເປັນ array ຫຼື object ທີ່ມີ records");
+    } else if (extension === "csv") {
+      importDraft = parseCSVRows(await file.text());
+    } else if (extension === "xlsx" || extension === "xls") {
+      await loadSheetJSForImport();
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      importDraft = XLSX.utils.sheet_to_json(firstSheet, { defval: "", raw: false });
+    } else {
+      throw new Error("ຮອງຮັບສະເພາະ CSV, Excel ແລະ JSON");
+    }
+    importDraft = importDraft.filter(row => row && typeof row === "object");
+    if (!importDraft.length) throw new Error("ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌");
+    if (importDraft.length > 1000) throw new Error("ນຳເຂົ້າໄດ້ສູງສຸດ 1,000 ລາຍການຕໍ່ຄັ້ງ");
+    renderImportPreview();
+    confirmButton.disabled = false;
+  } catch (err) {
+    importDraft = null;
+    preview.innerHTML = `<span style="color:#e2445c;font-weight:700;">❌ ${escHtml(err.message)}</span>`;
+  }
+}
+
+function renderImportPreview() {
+  const preview = document.getElementById("importPreview");
+  const sheetIndex = Number(document.getElementById("importSheetSelect").value);
+  const groupIndex = Number(document.getElementById("importGroupSelect").value);
+  const group = sheetsData[sheetIndex] && sheetsData[sheetIndex].groups[groupIndex];
+  if (!group || !importDraft) return;
+  const headers = Object.keys(importDraft[0] || {});
+  const hasItem = headers.some(h => ["item", "item name", "title"].includes(importKey(h)));
+  const columnNames = group.columns.map(c => importKey(c.name));
+  const ignored = headers.filter(h => !["item", "item name", "title", "record id", "id"].includes(importKey(h)) && !columnNames.includes(importKey(h)));
+  const example = importDraft.slice(0, 5).map(row => `<tr>${headers.slice(0, 6).map(h => `<td style="padding:4px 7px;border-top:1px solid var(--border-light);">${escHtml(row[h])}</td>`).join("")}</tr>`).join("");
+  preview.innerHTML = `
+    <div style="font-weight:800;color:${hasItem ? "#00a85a" : "#e2445c"};">${hasItem ? "✅" : "❌"} ພົບ ${importDraft.length} ລາຍການ${hasItem ? "" : " — ບໍ່ພົບຖັນ Item"}</div>
+    <div style="margin:5px 0;">ຖັນທີ່ອ່ານໄດ້: ${headers.map(escHtml).join(", ")}</div>
+    ${ignored.length ? `<div style="color:#fdab3d;">⚠️ ຈະຂ້າມຖັນ: ${ignored.map(escHtml).join(", ")}</div>` : ""}
+    <table style="margin-top:7px;border-collapse:collapse;min-width:100%;"><tbody>${example}</tbody></table>`;
+  document.getElementById("confirmImportBtn").disabled = !hasItem;
+}
+
+function coerceImportValue(column, value) {
+  const raw = value == null ? "" : String(value).trim();
+  if (column.type === "checkbox") return ["true", "1", "yes", "ແມ່ນ"].includes(raw.toLowerCase());
+  if (column.type === "number" || column.type === "progress" || column.type === "rating") return raw === "" ? "" : (Number(raw) || 0);
+  if (column.type === "staff") {
+    const staff = staffOptions.find(s => s.id === raw || importKey(s.name) === importKey(raw));
+    return staff ? staff.id : "";
+  }
+  if (column.type === "select" && raw && !(column.options || []).some(o => o.label === raw)) {
+    column.options = column.options || [];
+    column.options.push({ label: raw, color: "#579bfc" });
+  }
+  return raw;
+}
+
+function confirmDataImport() {
+  if (!importDraft) return;
+  const sheetIndex = Number(document.getElementById("importSheetSelect").value);
+  const groupIndex = Number(document.getElementById("importGroupSelect").value);
+  const mode = document.getElementById("importModeSelect").value;
+  const group = sheetsData[sheetIndex] && sheetsData[sheetIndex].groups[groupIndex];
+  if (!group) return alert("ບໍ່ພົບ Sheet ຫຼື Group ປາຍທາງ");
+  let added = 0, updated = 0, skipped = 0;
+  importDraft.forEach(record => {
+    const title = String(importCell(record, ["item", "item name", "title"]) || "").trim();
+    if (!title) { skipped++; return; }
+    const recordId = String(importCell(record, ["record id", "id"]) || "").trim();
+    let row = mode === "upsert" && recordId ? group.rows.find(r => r.id === recordId) : null;
+    if (row) { updated++; row.title = title; }
+    else { row = { id: recordId || ("r_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6)), title, values: {} }; group.rows.push(row); added++; }
+    group.columns.forEach(column => {
+      const value = importCell(record, [importKey(column.name)]);
+      if (value !== "") row.values[column.id] = coerceImportValue(column, value);
+      else if (!(column.id in row.values)) row.values[column.id] = "";
+    });
+  });
+  activeSheetIdx = sheetIndex;
+  renderBoard();
+  saveToGoogleSheets();
+  closeImportModal();
+  alert(`✅ Import ສຳເລັດ: ເພີ່ມ ${added} ລາຍການ, ອັບເດດ ${updated} ລາຍການ${skipped ? `, ຂ້າມ ${skipped} ລາຍການ` : ""}`);
+}
+
+function downloadImportTemplate() {
+  const sheet = sheetsData[activeSheetIdx];
+  const group = sheet.groups[0];
+  const headers = ["Record ID", "Item", ...group.columns.map(c => c.name)];
+  const example = ["", "Example item", ...group.columns.map(c => c.type === "date" ? new Date().toISOString().slice(0, 10) : "")];
+  downloadBlob([headers, example].map(row => row.map(csvEscape).join(",")).join("\n"), `${sheet.name}_import_template.csv`, "text/csv;charset=utf-8;");
+}
+
+function exportExcel() {
+  if (typeof XLSX === "undefined") {
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    script.onload = () => doExportExcel();
+    script.onerror = () => alert("⚠️ ບໍ່ສາມາດໂຫຼດ Excel library ໄດ້ (ກວດສອບອິນເຕີເນັດ)");
+    document.head.appendChild(script);
+  } else {
+    doExportExcel();
+  }
+}
+function doExportExcel() {
+  const wb = XLSX.utils.book_new();
+  sheetsData.forEach(sheet => {
+    let aoa = [];
+    sheet.groups.forEach(group => {
+      aoa.push([group.title]);
+      aoa.push(["Item", ...group.columns.map(c => c.name)]);
+      group.rows.forEach(row => {
+        aoa.push([row.title, ...group.columns.map(col => formatValueForExport(col, row.values[col.id]))]);
+      });
+      aoa.push([]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const safeName = sheet.name.substring(0, 31).replace(/[\[\]\*\/\\\?:]/g, "");
+    XLSX.utils.book_append_sheet(wb, ws, safeName || "Sheet");
+  });
+  XLSX.writeFile(wb, `manignom_export_${Date.now()}.xlsx`);
+}
+
+/* ============================== GOOGLE SHEETS SYNC ============================== */
+
+function saveToLocalCache() {
+  try { localStorage.setItem("MAG_BOARD_DATA", JSON.stringify({ sheetsData, staffOptions })); } catch (e) {}
+}
+
+let saveTimeout = null;
+function saveToGoogleSheets() {
+  saveToLocalCache();
+  const syncStatus = document.getElementById("syncStatus");
+  if (!googleScriptUrl) {
+    if (syncStatus) { syncStatus.innerText = "💾 ບັນທຶກໃນເຄື່ອງ (ຍັງບໍ່ຕັ້ງຄ່າ Sheets)"; syncStatus.className = "sync-status syncing"; }
+    return;
+  }
+  if (syncStatus) { syncStatus.innerText = "⏳ ກຳລັງບັນທຶກ..."; syncStatus.className = "sync-status syncing"; }
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    const payload = JSON.stringify({ sheetsData, staffOptions });
+    fetch(googleScriptUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: payload })
+      .then(() => { if (syncStatus) { syncStatus.innerText = "☁️ Synced with Google Sheets"; syncStatus.className = "sync-status"; } })
+      .catch(err => { console.error("Save Error:", err); if (syncStatus) { syncStatus.innerText = "⚠️ Sync Failed (Saved Locally)"; syncStatus.className = "sync-status syncing"; } });
+  }, 1000);
+}
+
+function loadFromGoogleSheets() {
+  const syncStatus = document.getElementById("syncStatus");
+  if (!googleScriptUrl) { if (syncStatus) syncStatus.innerText = "☁️ Ready (ຍັງບໍ່ຕັ້ງຄ່າ Sheets)"; return; }
+  if (syncStatus) syncStatus.innerText = "🔄 ກຳລັງກວດສອບ...";
+  fetch(googleScriptUrl)
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.sheetsData && data.sheetsData.length > 0) {
+        sheetsData = data.sheetsData;
+        migrateLegacyColumns();
+        if (data.staffOptions) staffOptions = data.staffOptions;
+        saveToLocalCache();
+        renderBoard();
+        if (syncStatus) { syncStatus.innerText = "☁️ Synced with Google Sheets"; syncStatus.className = "sync-status"; }
+      } else {
+        saveToGoogleSheets();
+      }
+    })
+    .catch(err => {
+      console.error("Fetch Error:", err);
+      if (syncStatus) { syncStatus.innerText = "☁️ Ready (Local Cache)"; syncStatus.className = "sync-status"; }
+    });
+}
+
+function saveGoogleUrl() {
+  googleScriptUrl = document.getElementById("gsUrlInput").value.trim();
+  try { localStorage.setItem("MAG_GS_URL", googleScriptUrl); } catch (e) {}
+  const status = document.getElementById("syncStatus");
+  if (status) status.innerText = googleScriptUrl ? "☁️ URL ບັນທຶກແລ້ວ, ກຳລັງ sync..." : "☁️ ຍັງບໍ່ໄດ້ຕັ້ງຄ່າ URL";
+  if (googleScriptUrl) loadFromGoogleSheets();
+}
+
+function copyAppsScriptCode() {
+  const ta = document.getElementById("appsScriptCode");
+  ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  if (navigator.clipboard) navigator.clipboard.writeText(ta.value).catch(() => {});
+  alert("✅ Copy ໂຄ້ດແລ້ວ! ເອົາໄປວາງໃນ Apps Script Editor");
+}
+
+/* ============================== SHEETS TAB BAR ============================== */
+
+function renderSheetsBar() {
+  const container = document.getElementById("sheetsBar");
+  let html = sheetsData.map((sheet, sIdx) => {
+    const isActive = sIdx === activeSheetIdx;
+    const tabStyle = isActive
+      ? `color: ${sheet.color || "var(--accent)"}; border-top: 3px solid ${sheet.color || "var(--accent)"};`
+      : `color: var(--text-secondary);`;
+    return `
+      <div class="sheet-tab ${isActive ? "active" : ""}" style="${tabStyle}" onclick="switchSheet(${sIdx})">
+        <input type="color" class="color-picker" value="${sheet.color || "#0073ea"}"
+               onclick="event.stopPropagation()"
+               onchange="updateSheetColor(${sIdx}, this.value)">
+        <span contenteditable="true"
+              onclick="event.stopPropagation()"
+              onblur="updateSheetName(${sIdx}, this.innerText)">${escHtml(sheet.name)}</span>
+        ${sheetsData.length > 1 ? `<button class="icon-btn" onclick="deleteSheet(event, ${sIdx})">✕</button>` : ""}
+      </div>
+    `;
+  }).join("");
+  html += `<button class="add-sheet-btn" onclick="addNewSheet()">＋ Add Sheet</button>`;
+  container.innerHTML = html;
+}
+
+function switchSheet(sIdx) { activeSheetIdx = sIdx; searchQuery = ""; const si = document.getElementById("searchInput"); if (si) si.value = ""; renderBoard(); }
+function updateSheetName(sIdx, name) { sheetsData[sIdx].name = name; saveToGoogleSheets(); }
+function updateSheetColor(sIdx, color) { sheetsData[sIdx].color = color; renderBoard(); saveToGoogleSheets(); }
+
+function addNewSheet() {
+  const randomColor = "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
+  sheetsData.push({
+    id: "sheet_" + Date.now(),
+    name: "NEW SHEET " + (sheetsData.length + 1),
+    color: randomColor,
+    groups: [createStandardGroupTemplate("August", randomColor)]
+  });
+  activeSheetIdx = sheetsData.length - 1;
+  renderBoard(); saveToGoogleSheets();
+}
+
+function deleteSheet(e, sIdx) {
+  e.stopPropagation();
+  if (confirm("ລົບ Sheet ນີ້ແທ້ບໍ?")) {
+    sheetsData.splice(sIdx, 1);
+    activeSheetIdx = Math.max(0, activeSheetIdx - 1);
+    renderBoard(); saveToGoogleSheets();
+  }
+}
+
+/* ============================== CELL RENDERING ============================== */
+
+function renderCell(gIdx, rIdx, col, cellVal) {
+  switch (col.type) {
+    case "select": {
+      const opts = (col.options && col.options.length) ? col.options : [{ label: "Option 1", color: "#ccc" }];
+      const current = opts.find(o => o.label === cellVal) || opts[0];
+      return `<td class="col-dynamic">
+        <select class="dropdown-select" style="background-color:${current.color};color:#fff;" onchange="updateCellValue(${gIdx},${rIdx},'${col.id}',this.value)">
+          ${opts.map(o => `<option value="${escAttr(o.label)}" ${o.label === cellVal ? "selected" : ""}>${escHtml(o.label)}</option>`).join("")}
+        </select>
+      </td>`;
+    }
+    case "staff": {
+      const current = staffOptions.find(s => s.id === cellVal) || staffOptions[0] || { name: "N/A", color: "#ccc" };
+      return `<td class="col-dynamic">
+        <select class="dropdown-select" style="background-color:${current.color};color:#fff;" onchange="handleStaffChange(${gIdx},${rIdx},'${col.id}',this.value)">
+          ${staffOptions.map(s => `<option value="${s.id}" ${s.id === cellVal ? "selected" : ""}>👤 ${escHtml(s.name)}</option>`).join("")}
+          <option value="__MANAGE__">✏️ ຈັດການ Staff...</option>
+        </select>
+      </td>`;
+    }
+    case "date":
+      return `<td class="col-dynamic"><input type="date" class="date-picker-input" value="${escAttr(cellVal || "")}" onchange="updateCellValue(${gIdx},${rIdx},'${col.id}',this.value)"></td>`;
+    case "number":
+      return `<td class="col-dynamic"><input type="number" class="date-picker-input" value="${cellVal === undefined || cellVal === "" ? "" : cellVal}" onchange="updateCellValue(${gIdx},${rIdx},'${col.id}',this.value)"></td>`;
+    case "checkbox": {
+      const checked = cellVal === true || cellVal === "true";
+      return `<td class="col-dynamic"><input type="checkbox" class="checkbox-custom" ${checked ? "checked" : ""} style="width:18px;height:18px;" onchange="updateCellValue(${gIdx},${rIdx},'${col.id}',this.checked)"></td>`;
+    }
+    case "progress": {
+      const v = Math.max(0, Math.min(100, parseInt(cellVal) || 0));
+      return `<td class="col-dynamic">
+        <div style="display:flex;align-items:center;gap:6px;padding:0 8px;">
+          <input type="range" min="0" max="100" value="${v}" class="progress-range"
+            style="background: linear-gradient(to right, var(--accent) ${v}%, var(--border-light) ${v}%);"
+            oninput="this.nextElementSibling.innerText=this.value+'%'; this.style.background='linear-gradient(to right, var(--accent) '+this.value+'%, var(--border-light) '+this.value+'%)';"
+            onchange="updateCellValue(${gIdx},${rIdx},'${col.id}',this.value)">
+          <span style="font-size:11px;color:var(--text-secondary);min-width:32px;">${v}%</span>
+        </div>
+      </td>`;
+    }
+    case "rating": {
+      const v = parseInt(cellVal) || 0;
+      let stars = "";
+      for (let i = 1; i <= 5; i++) stars += `<span style="cursor:pointer;color:${i <= v ? "var(--accent)" : "var(--border-color)"};font-size:15px;" onclick="setRating(${gIdx},${rIdx},'${col.id}',${i},${v})">★</span>`;
+      return `<td class="col-dynamic"><div style="display:flex;justify-content:center;gap:1px;">${stars}</div></td>`;
+    }
+    case "link": {
+      const v = cellVal || "";
+      return `<td class="col-dynamic">
+        <div style="display:flex;align-items:center;gap:4px;padding:0 6px;">
+          <input type="text" value="${escAttr(v)}" placeholder="https://..." style="flex:1;border:none;background:transparent;outline:none;font-size:12.5px;color:var(--text-primary);" onchange="updateCellValue(${gIdx},${rIdx},'${col.id}',this.value)">
+          ${v ? `<button class="icon-btn" onclick="window.open('${escAttr(v)}','_blank')">🔗</button>` : ""}
+        </div>
+      </td>`;
+    }
+    case "longtext":
+      return `<td class="col-dynamic"><div class="text-cell" style="height:auto;min-height:44px;"><span contenteditable="true" style="white-space:pre-wrap;text-align:left;width:100%;" onblur="updateCellValue(${gIdx},${rIdx},'${col.id}',this.innerText)">${escHtml(cellVal || "")}</span></div></td>`;
+    default:
+      return `<td class="col-dynamic"><div class="text-cell"><span contenteditable="true" onblur="updateCellValue(${gIdx},${rIdx},'${col.id}',this.innerText)">${escHtml(cellVal || "")}</span></div></td>`;
+  }
+}
+function setRating(gIdx, rIdx, colId, val, current) { const newVal = (val === current) ? 0 : val; updateCellValue(gIdx, rIdx, colId, newVal); }
+
+/* ============================== BOARD RENDERING ============================== */
+
+function renderBoard() {
+  renderSheetsBar();
+  renderStatChips();
+  const container = document.getElementById("boardContainer");
+  const currentSheet = sheetsData[activeSheetIdx];
+
+  if (!currentSheet || !currentSheet.groups) {
+    container.innerHTML = "<div>ບໍ່ມີຂໍ້ມູນ</div>";
+    return;
+  }
+
+  container.innerHTML = currentSheet.groups.map((group, gIdx) => {
+    const headersHtml = group.columns.map((col, cIdx) => `
+      <th class="col-dynamic" ondragover="handleDragOver(event)" ondrop="handleDrop(event, ${gIdx}, ${cIdx})">
+        <div class="th-content">
+          <span class="drag-handle" draggable="true" ondragstart="handleDragStart(event, ${gIdx}, ${cIdx})" title="ລາກເພື່ອຈັດລຽງ">⠿</span>
+          <span contenteditable="true" style="flex:1;" onblur="updateColumnName(${gIdx}, ${cIdx}, this.innerText)">${escHtml(col.name)}</span>
+          <button class="icon-btn" onclick="sortByColumn(${gIdx}, '${col.id}')" title="ຈັດລຽງ">⇅</button>
+          ${col.type === "select" ? `<button class="icon-btn" onclick="openOptionsEditor(${gIdx}, ${cIdx})" title="ແກ້ໄຂຕົວເລືອກ">⚙</button>` : ""}
+          <button class="icon-btn" onclick="deleteColumn(${gIdx}, ${cIdx})" title="ລົບຄໍລໍາ">✕</button>
+        </div>
+      </th>
+    `).join("");
+
+    let bodyHtml;
+    if (group.collapsed) {
+      bodyHtml = `<div style="padding:10px 4px;color:var(--text-secondary);font-size:13px;">📁 ${group.rows.length} ລາຍການ (ພັບໄວ້)</div>`;
+    } else {
+      const rowsWithIdx = group.rows.map((row, idx) => ({ row, idx }));
+      const visible = searchQuery ? rowsWithIdx.filter(({ row }) => matchesSearch(row, group.columns, searchQuery)) : rowsWithIdx;
+
+      const rowsHtml = visible.map(({ row, idx: rIdx }) => {
+        const cellsHtml = group.columns.map(col => renderCell(gIdx, rIdx, col, row.values[col.id])).join("");
+        return `
+          <tr ondragover="handleDragOver(event)" ondrop="handleRowDrop(event, ${gIdx}, ${rIdx})">
+            <td class="col-select"><input type="checkbox" class="checkbox-custom"></td>
+            <td class="col-item">
+              <div class="col-item-content">
+                <span class="drag-handle" draggable="true" ondragstart="handleRowDragStart(event, ${gIdx}, ${rIdx})" title="ລາກເພື່ອຈັດລຽງ">⠿</span>
+                <span contenteditable="true" onblur="updateRowTitle(${gIdx}, ${rIdx}, this.innerText)">${escHtml(row.title)}</span>
+              </div>
+            </td>
+            ${cellsHtml}
+            <td class="col-action">
+              <button class="icon-btn" onclick="duplicateRow(${gIdx}, ${rIdx})" title="ຄັດລອກ">📋</button>
+              <button class="icon-btn" onclick="deleteRow(${gIdx}, ${rIdx})" title="ລົບ">🗑️</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      bodyHtml = `
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-select"><input type="checkbox" class="checkbox-custom"></th>
+                <th class="col-item">Item Name</th>
+                ${headersHtml}
+                <th class="col-add-header" onclick="addColumn(${gIdx})">＋</th>
+                <th class="col-action"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+              <tr class="add-item-row" onclick="addRow(${gIdx})">
+                <td class="col-select"></td>
+                <td colspan="${group.columns.length + 3}">＋ Add item</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="group-container" style="border-left-color: ${group.color};">
+        <div class="group-header">
+          <div class="group-title-wrapper" style="color: ${group.color};">
+            <button class="icon-btn" onclick="toggleGroupCollapse(${gIdx})" style="font-size:14px;">${group.collapsed ? "▸" : "▾"}</button>
+            <input type="color" class="color-picker" value="${group.color}" onchange="updateGroupColor(${gIdx}, this.value)">
+            <span contenteditable="true" onblur="updateGroupTitle(${gIdx}, this.innerText)">${escHtml(group.title)}</span>
+            <span style="font-size:12px;color:var(--text-secondary);font-weight:400;">(${group.rows.length})</span>
+          </div>
+          <button class="icon-btn" onclick="deleteGroup(${gIdx})" style="color:#e2445c;">🗑️ ລົບກຸ່ມນີ້</button>
+        </div>
+        ${bodyHtml}
+      </div>
+    `;
+  }).join("");
+}
+
+/* ============================== DRAG & DROP (COLUMNS) ============================== */
+
+function handleDragStart(e, gIdx, cIdx) { draggedGroupIdx = gIdx; draggedColIdx = cIdx; e.stopPropagation(); }
+function handleDragOver(e) { e.preventDefault(); }
+function handleDrop(e, gIdx, cIdx) {
+  e.preventDefault(); e.stopPropagation();
+  if (draggedGroupIdx !== gIdx || draggedColIdx === null || draggedColIdx === cIdx) return;
+  const cols = sheetsData[activeSheetIdx].groups[gIdx].columns;
+  const movedCol = cols.splice(draggedColIdx, 1)[0];
+  cols.splice(cIdx, 0, movedCol);
+  draggedColIdx = null; draggedGroupIdx = null;
+  renderBoard(); saveToGoogleSheets();
+}
+
+/* ============================== DRAG & DROP (ROWS) ============================== */
+
+function handleRowDragStart(e, gIdx, rIdx) { draggedRowGroupIdx = gIdx; draggedRowIdx = rIdx; e.stopPropagation(); }
+function handleRowDrop(e, gIdx, rIdx) {
+  e.preventDefault(); e.stopPropagation();
+  if (draggedRowGroupIdx !== gIdx || draggedRowIdx === null || draggedRowIdx === rIdx) return;
+  const rows = sheetsData[activeSheetIdx].groups[gIdx].rows;
+  const moved = rows.splice(draggedRowIdx, 1)[0];
+  rows.splice(rIdx, 0, moved);
+  draggedRowIdx = null; draggedRowGroupIdx = null;
+  renderBoard(); saveToGoogleSheets();
+}
+
+/* ============================== SORTING ============================== */
+
+function getSortValue(col, val) {
+  switch (col.type) {
+    case "number": case "progress": case "rating": return parseFloat(val) || 0;
+    case "date": return val ? new Date(val).getTime() : 0;
+    case "checkbox": return val ? 1 : 0;
+    case "select": { const idx = (col.options || []).findIndex(o => o.label === val); return idx === -1 ? 999 : idx; }
+    case "staff": { const s = staffOptions.find(s => s.id === val); return s ? s.name.toLowerCase() : ""; }
+    default: return (val || "").toString().toLowerCase();
+  }
+}
+function sortByColumn(gIdx, colId) {
+  const group = sheetsData[activeSheetIdx].groups[gIdx];
+  const col = group.columns.find(c => c.id === colId);
+  if (!col) return;
+  if (!group._sort || group._sort.colId !== colId) group._sort = { colId, dir: "asc" };
+  else group._sort.dir = group._sort.dir === "asc" ? "desc" : "asc";
+  const dir = group._sort.dir === "asc" ? 1 : -1;
+  group.rows.sort((a, b) => {
+    const va = getSortValue(col, a.values[colId]), vb = getSortValue(col, b.values[colId]);
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+  renderBoard(); saveToGoogleSheets();
+}
+
+/* ============================== GROUP ACTIONS ============================== */
+
+function updateGroupTitle(gIdx, title) { sheetsData[activeSheetIdx].groups[gIdx].title = title; saveToGoogleSheets(); }
+function updateGroupColor(gIdx, color) { sheetsData[activeSheetIdx].groups[gIdx].color = color; renderBoard(); saveToGoogleSheets(); }
+function deleteGroup(gIdx) { if (!confirm("ລົບກຸ່ມນີ້ແທ້ບໍ?")) return; sheetsData[activeSheetIdx].groups.splice(gIdx, 1); renderBoard(); saveToGoogleSheets(); }
+function toggleGroupCollapse(gIdx) { const g = sheetsData[activeSheetIdx].groups[gIdx]; g.collapsed = !g.collapsed; renderBoard(); }
+function addNewGroup() {
+  const currentSheetColor = sheetsData[activeSheetIdx].color || "#579bfc";
+  sheetsData[activeSheetIdx].groups.push(createStandardGroupTemplate("Group ໃໝ່", currentSheetColor));
+  renderBoard(); saveToGoogleSheets();
+}
+
+/* ============================== COLUMN ACTIONS ============================== */
+
+function updateColumnName(gIdx, cIdx, name) { sheetsData[activeSheetIdx].groups[gIdx].columns[cIdx].name = name; saveToGoogleSheets(); }
+
+function addColumn(gIdx) {
+  addColumnTargetGroup = gIdx;
+  document.getElementById("newColName").value = "";
+  document.getElementById("newColType").value = "text";
+  document.getElementById("addColumnModal").style.display = "flex";
+}
+function closeAddColumnModal() { document.getElementById("addColumnModal").style.display = "none"; }
+function confirmAddColumn() {
+  const name = document.getElementById("newColName").value.trim() || "New Column";
+  const type = document.getElementById("newColType").value;
+  const gIdx = addColumnTargetGroup;
+  if (gIdx === null || gIdx === undefined) return;
+  const colId = "c_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+  const newCol = { id: colId, name, type };
+  if (type === "select") newCol.options = [{ label: "Option 1", color: "#00c875" }, { label: "Option 2", color: "#fdab3d" }];
+
+  const group = sheetsData[activeSheetIdx].groups[gIdx];
+  group.columns.push(newCol);
+  group.rows.forEach(r => {
+    if (type === "checkbox") r.values[colId] = false;
+    else if (type === "progress" || type === "rating" || type === "number") r.values[colId] = 0;
+    else if (type === "select") r.values[colId] = newCol.options[0].label;
+    else if (type === "staff") r.values[colId] = staffOptions[0] ? staffOptions[0].id : "";
+    else r.values[colId] = "";
+  });
+
+  closeAddColumnModal();
+  renderBoard(); saveToGoogleSheets();
+
+  if (type === "select") {
+    const cIdx = group.columns.length - 1;
+    openOptionsEditor(gIdx, cIdx);
+  }
+}
+
+function deleteColumn(gIdx, cIdx) {
+  const colId = sheetsData[activeSheetIdx].groups[gIdx].columns[cIdx].id;
+  sheetsData[activeSheetIdx].groups[gIdx].columns.splice(cIdx, 1);
+  sheetsData[activeSheetIdx].groups[gIdx].rows.forEach(r => delete r.values[colId]);
+  renderBoard(); saveToGoogleSheets();
+}
+
+/* ============================== OPTIONS (SELECT LABEL) EDITOR ============================== */
+
+function openOptionsEditor(gIdx, cIdx) {
+  editingOptionsRef = { gIdx, cIdx };
+  const col = sheetsData[activeSheetIdx].groups[gIdx].columns[cIdx];
+  editingOptionsDraft = JSON.parse(JSON.stringify(col.options || []));
+  renderOptionsEditorList();
+  document.getElementById("optionsModal").style.display = "flex";
+}
+function renderOptionsEditorList() {
+  document.getElementById("optionsListContainer").innerHTML = editingOptionsDraft.map((opt, i) => `
+    <div class="staff-item-row">
+      <input type="color" class="color-picker" value="${opt.color}" onchange="editingOptionsDraft[${i}].color=this.value">
+      <input type="text" value="${escAttr(opt.label)}" onblur="editingOptionsDraft[${i}].label=this.value">
+      <button class="icon-btn" onclick="removeOptionRow(${i})">🗑️</button>
+    </div>
+  `).join("");
+}
+function addOptionRow() { editingOptionsDraft.push({ label: "New option", color: "#579bfc" }); renderOptionsEditorList(); }
+function removeOptionRow(i) { editingOptionsDraft.splice(i, 1); renderOptionsEditorList(); }
+function closeOptionsEditor() { document.getElementById("optionsModal").style.display = "none"; editingOptionsRef = null; }
+function saveOptionsEditor() {
+  if (!editingOptionsRef) return;
+  const { gIdx, cIdx } = editingOptionsRef;
+  const col = sheetsData[activeSheetIdx].groups[gIdx].columns[cIdx];
+  const cleaned = editingOptionsDraft.filter(o => o.label && o.label.trim() !== "");
+  col.options = cleaned.length ? cleaned : [{ label: "Option 1", color: "#579bfc" }];
+  closeOptionsEditor();
+  renderBoard(); saveToGoogleSheets();
+}
+
+/* ============================== ROW ACTIONS ============================== */
+
+function updateRowTitle(gIdx, rIdx, title) { sheetsData[activeSheetIdx].groups[gIdx].rows[rIdx].title = title; saveToGoogleSheets(); }
+
+function addRow(gIdx) {
+  const group = sheetsData[activeSheetIdx].groups[gIdx];
+  const newRow = { id: "r_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4), title: "New Item", values: {} };
+  const today = new Date().toISOString().split("T")[0];
+  group.columns.forEach(col => {
+    if (col.type === "select") newRow.values[col.id] = (col.options && col.options[0]) ? col.options[0].label : "";
+    else if (col.type === "staff") newRow.values[col.id] = staffOptions[0] ? staffOptions[0].id : "";
+    else if (col.type === "date") newRow.values[col.id] = today;
+    else if (col.type === "checkbox") newRow.values[col.id] = false;
+    else if (col.type === "progress" || col.type === "rating" || col.type === "number") newRow.values[col.id] = 0;
+    else newRow.values[col.id] = "";
+  });
+  group.rows.push(newRow);
+  renderBoard(); saveToGoogleSheets();
+}
+function duplicateRow(gIdx, rIdx) {
+  const group = sheetsData[activeSheetIdx].groups[gIdx];
+  const orig = group.rows[rIdx];
+  const copy = JSON.parse(JSON.stringify(orig));
+  copy.id = "r_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+  copy.title = orig.title + " (copy)";
+  group.rows.splice(rIdx + 1, 0, copy);
+  renderBoard(); saveToGoogleSheets();
+}
+function deleteRow(gIdx, rIdx) { sheetsData[activeSheetIdx].groups[gIdx].rows.splice(rIdx, 1); renderBoard(); saveToGoogleSheets(); }
+function updateCellValue(gIdx, rIdx, colId, val) { sheetsData[activeSheetIdx].groups[gIdx].rows[rIdx].values[colId] = val; renderBoard(); saveToGoogleSheets(); }
+
+function handleStaffChange(gIdx, rIdx, colId, value) {
+  if (value === "__MANAGE__") openStaffModal();
+  else updateCellValue(gIdx, rIdx, colId, value);
+}
+
+/* ============================== STAFF MODAL ============================== */
+
+function openStaffModal() { renderStaffList(); document.getElementById("staffModal").style.display = "flex"; }
+function closeStaffModal() { document.getElementById("staffModal").style.display = "none"; renderBoard(); }
+function renderStaffList() {
+  document.getElementById("staffListContainer").innerHTML = staffOptions.map(s => `
+    <div class="staff-item-row">
+      <input type="color" class="color-picker" value="${s.color}" onchange="updateStaffColor('${s.id}', this.value)">
+      <input type="text" value="${escAttr(s.name)}" onblur="updateStaffName('${s.id}', this.value)">
+      <button class="icon-btn" onclick="deleteStaff('${s.id}')">🗑️</button>
+    </div>
+  `).join("");
+}
+function addNewStaff() {
+  const name = document.getElementById("newStaffName").value.trim();
+  const color = document.getElementById("newStaffColor").value;
+  if (!name) return;
+  staffOptions.push({ id: "s_" + Date.now(), name, color });
+  document.getElementById("newStaffName").value = "";
+  renderStaffList(); renderBoard(); saveToGoogleSheets();
+}
+function updateStaffName(id, name) { const s = staffOptions.find(i => i.id === id); if (s) { s.name = name; saveToGoogleSheets(); } }
+function updateStaffColor(id, color) { const s = staffOptions.find(i => i.id === id); if (s) { s.color = color; saveToGoogleSheets(); } }
+function deleteStaff(id) { staffOptions = staffOptions.filter(s => s.id !== id); renderStaffList(); renderBoard(); saveToGoogleSheets(); }
+
+/* ============================== SETTINGS MODAL (THEME) ============================== */
+
+function renderThemeGrid() {
+  const fields = [
+    { key: "accent", label: "ສີ Accent (ປຸ່ມ / highlight)" },
+    { key: "bgMain", label: "ພື້ນຫຼັງຫຼັກ (Background)" },
+    { key: "cardBg", label: "ພື້ນຫຼັງກ່ອງ (Card)" },
+    { key: "textPrimary", label: "ສີໂຕໜັງສືຫຼັກ" },
+    { key: "textSecondary", label: "ສີໂຕໜັງສືຮອງ" },
+    { key: "borderColor", label: "ສີເສັ້ນຂອບ" }
+  ];
+  document.getElementById("themeGrid").innerHTML = fields.map(f => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+      <span style="font-size:13px;">${f.label}</span>
+      <input type="color" value="${draftTheme[f.key]}" oninput="draftTheme['${f.key}']=this.value; previewTheme();">
+    </div>
+  `).join("");
+  document.getElementById("fontSelect").value = draftTheme.font;
+}
+function previewTheme() { applyTheme(draftTheme); }
+function updateFontPreview() { draftTheme.font = document.getElementById("fontSelect").value; previewTheme(); }
+function applyPreset(name) {
+  draftTheme = JSON.parse(JSON.stringify(name === "dark" ? DARK_PRESET : LIGHT_PRESET));
+  renderThemeGrid(); previewTheme();
+}
+function openSettingsModal() {
+  themeBeforeEdit = JSON.parse(JSON.stringify(theme));
+  draftTheme = JSON.parse(JSON.stringify(theme));
+  renderThemeGrid();
+  document.getElementById("gsUrlInput").value = googleScriptUrl || "";
+  document.getElementById("settingsModal").style.display = "flex";
+}
+function closeSettingsModalCancel() {
+  theme = themeBeforeEdit;
+  applyTheme(theme);
+  document.getElementById("settingsModal").style.display = "none";
+}
+function saveThemeSettings() {
+  theme = JSON.parse(JSON.stringify(draftTheme));
+  applyTheme(theme);
+  try { localStorage.setItem("MAG_THEME", JSON.stringify(theme)); } catch (e) {}
+  document.getElementById("settingsModal").style.display = "none";
+}
+function resetThemeDefault() { draftTheme = JSON.parse(JSON.stringify(LIGHT_PRESET)); renderThemeGrid(); previewTheme(); }
+
+/* ============================== INIT ============================== */
+
+function initApp() {
+  try { const t = localStorage.getItem("MAG_TITLE"); if (t) boardTitle = t; } catch (e) {}
+  try { const th = localStorage.getItem("MAG_THEME"); if (th) theme = JSON.parse(th); } catch (e) {}
+  try { const url = localStorage.getItem("MAG_GS_URL"); if (url) googleScriptUrl = url; } catch (e) {}
+  try {
+    const cached = localStorage.getItem("MAG_BOARD_DATA");
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.sheetsData) sheetsData = parsed.sheetsData;
+      if (parsed.staffOptions) staffOptions = parsed.staffOptions;
+    }
+  } catch (e) {}
+
+  migrateLegacyColumns();
+  applyTheme(theme);
+  document.getElementById("boardTitle").innerText = boardTitle;
+  document.title = boardTitle;
+  document.getElementById("appsScriptCode").value = APPS_SCRIPT_CODE;
+
+  renderBoard();
+  loadFromGoogleSheets();
+}
+
+initApp();
+</script>
+</body>
+</html>
