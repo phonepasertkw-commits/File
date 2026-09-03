@@ -302,6 +302,9 @@
             <option value="append">ເພີ່ມລາຍການທັງໝົດ</option>
           </select>
         </label>
+        <label id="importItemColumnWrap" style="display:none;font-size:13px;font-weight:700;">ເລືອກຖັນທີ່ເປັນ Item
+          <select id="importItemColumnSelect" onchange="renderImportPreview()" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);"></select>
+        </label>
       </div>
       <div style="font-size:12px;color:var(--text-secondary);margin:12px 0 6px;line-height:1.5;">ຕ້ອງມີຖັນ <b>Item</b>. ຊື່ຖັນອື່ນໆ ຕ້ອງກົງກັບຊື່ Column ໃນ Group. ໃຊ້ <b>Record ID</b> ເມື່ອຕ້ອງການອັບເດດລາຍການເກົ່າ.</div>
       <div id="importPreview" style="border:1px solid var(--border-light);border-radius:8px;padding:10px;min-height:78px;font-size:12px;overflow:auto;color:var(--text-secondary);">ເລືອກໄຟລ໌ເພື່ອເບິ່ງຕົວຢ່າງ</div>
@@ -659,6 +662,19 @@ function importCell(record, names) {
   const key = keys.find(k => names.includes(importKey(k)));
   return key === undefined ? "" : record[key];
 }
+function getSelectedImportItemHeader() {
+  const select = document.getElementById("importItemColumnSelect");
+  return select && select.value ? select.value : null;
+}
+function populateImportItemColumns() {
+  const select = document.getElementById("importItemColumnSelect");
+  const wrap = document.getElementById("importItemColumnWrap");
+  const headers = Object.keys((importDraft && importDraft[0]) || {});
+  const detected = headers.find(header => IMPORT_ITEM_HEADERS.includes(importKey(header)));
+  select.innerHTML = `<option value="">-- ເລືອກຖັນ Item --</option>` + headers.map(header => `<option value="${escAttr(header)}">${escHtml(header)}</option>`).join("");
+  if (detected) select.value = detected;
+  wrap.style.display = headers.length ? "block" : "none";
+}
 
 function openImportModal() {
   importDraft = null;
@@ -749,6 +765,7 @@ async function readImportFile(file) {
     importDraft = importDraft.filter(row => row && typeof row === "object");
     if (!importDraft.length) throw new Error("ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌");
     if (importDraft.length > 1000) throw new Error("ນຳເຂົ້າໄດ້ສູງສຸດ 1,000 ລາຍການຕໍ່ຄັ້ງ");
+    populateImportItemColumns();
     renderImportPreview();
   } catch (err) {
     importDraft = null;
@@ -764,12 +781,13 @@ function renderImportPreview() {
   const group = sheetsData[sheetIndex] && sheetsData[sheetIndex].groups[groupValue === "__NEW__" ? 0 : groupIndex];
   if (!group || !importDraft) return;
   const headers = Object.keys(importDraft[0] || {});
-  const hasItem = headers.some(h => IMPORT_ITEM_HEADERS.includes(importKey(h)));
+  const itemHeader = getSelectedImportItemHeader();
+  const hasItem = Boolean(itemHeader);
   const columnNames = group.columns.map(c => importKey(c.name));
   const ignored = headers.filter(h => ![...IMPORT_ITEM_HEADERS, "record id", "id"].includes(importKey(h)) && !columnNames.includes(importKey(h)));
   const example = importDraft.slice(0, 5).map(row => `<tr>${headers.slice(0, 6).map(h => `<td style="padding:4px 7px;border-top:1px solid var(--border-light);">${escHtml(row[h])}</td>`).join("")}</tr>`).join("");
   preview.innerHTML = `
-    <div style="font-weight:800;color:${hasItem ? "#00a85a" : "#e2445c"};">${hasItem ? "✅" : "❌"} ພົບ ${importDraft.length} ລາຍການ${hasItem ? "" : " — ບໍ່ພົບຖັນ Item"}</div>
+    <div style="font-weight:800;color:${hasItem ? "#00a85a" : "#e2445c"};">${hasItem ? "✅" : "❌"} ພົບ ${importDraft.length} ລາຍການ${hasItem ? ` — ໃຊ້ຖັນ ${escHtml(itemHeader)} ເປັນ Item` : " — ກະລຸນາເລືອກຖັນ Item"}</div>
     <div style="margin:5px 0;">ຖັນທີ່ອ່ານໄດ້: ${headers.map(escHtml).join(", ")}</div>
     ${ignored.length ? `<div style="color:#fdab3d;">⚠️ ຈະຂ້າມຖັນ: ${ignored.map(escHtml).join(", ")}</div>` : ""}
     <table style="margin-top:7px;border-collapse:collapse;min-width:100%;"><tbody>${example}</tbody></table>`;
@@ -793,6 +811,8 @@ function coerceImportValue(column, value) {
 
 function confirmDataImport() {
   if (!importDraft) return;
+  const itemHeader = getSelectedImportItemHeader();
+  if (!itemHeader) return alert("ກະລຸນາເລືອກຖັນທີ່ເປັນ Item");
   const sheetIndex = Number(document.getElementById("importSheetSelect").value);
   const groupValue = document.getElementById("importGroupSelect").value;
   let groupIndex = Number(groupValue);
@@ -818,7 +838,7 @@ function confirmDataImport() {
   if (!group) return alert("ບໍ່ພົບ Sheet ຫຼື Group ປາຍທາງ");
   let added = 0, updated = 0, skipped = 0;
   importDraft.forEach(record => {
-    const title = String(importCell(record, IMPORT_ITEM_HEADERS) || "").trim();
+    const title = String(record[itemHeader] || "").trim();
     if (!title) { skipped++; return; }
     const recordId = String(importCell(record, ["record id", "id"]) || "").trim();
     let row = mode === "upsert" && recordId ? group.rows.find(r => r.id === recordId) : null;
