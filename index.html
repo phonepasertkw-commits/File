@@ -291,7 +291,10 @@
           <select id="importSheetSelect" onchange="renderImportGroupOptions()" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);"></select>
         </label>
         <label style="font-size:13px;font-weight:700;">ນຳເຂົ້າໄປທີ່ Group
-          <select id="importGroupSelect" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);"></select>
+          <select id="importGroupSelect" onchange="toggleImportNewGroupName()" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);"></select>
+        </label>
+        <label id="importNewGroupNameWrap" style="display:none;font-size:13px;font-weight:700;">ຊື່ Group ໃໝ່
+          <input id="importNewGroupName" type="text" placeholder="ຕົວຢ່າງ: September 2026" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);">
         </label>
         <label style="font-size:13px;font-weight:700;">ຮູບແບບການນຳເຂົ້າ
           <select id="importModeSelect" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);">
@@ -648,6 +651,7 @@ function importJSONBackup(file) {
 /* ============================== DATA IMPORT ============================== */
 
 let importDraft = null;
+const IMPORT_ITEM_HEADERS = ["item", "item name", "title", "model", "model name", "ຮຸ່ນລົດ"];
 
 function importKey(value) { return String(value || "").trim().toLowerCase().replace(/\s+/g, " "); }
 function importCell(record, names) {
@@ -672,8 +676,13 @@ function renderImportGroupOptions() {
   const sheetIndex = Number(document.getElementById("importSheetSelect").value);
   const groupSelect = document.getElementById("importGroupSelect");
   const groups = (sheetsData[sheetIndex] || {}).groups || [];
-  groupSelect.innerHTML = groups.map((group, i) => `<option value="${i}">${escHtml(group.title)}</option>`).join("");
+  groupSelect.innerHTML = `<option value="__NEW__">＋ ສ້າງ Group ໃໝ່ຈາກຂໍ້ມູນນີ້</option>` + groups.map((group, i) => `<option value="${i}" ${i === 0 ? "selected" : ""}>${escHtml(group.title)}</option>`).join("");
+  toggleImportNewGroupName();
   if (importDraft) renderImportPreview();
+}
+function toggleImportNewGroupName() {
+  const isNew = document.getElementById("importGroupSelect").value === "__NEW__";
+  document.getElementById("importNewGroupNameWrap").style.display = isNew ? "block" : "none";
 }
 
 function loadSheetJSForImport() {
@@ -741,7 +750,6 @@ async function readImportFile(file) {
     if (!importDraft.length) throw new Error("ບໍ່ພົບຂໍ້ມູນໃນໄຟລ໌");
     if (importDraft.length > 1000) throw new Error("ນຳເຂົ້າໄດ້ສູງສຸດ 1,000 ລາຍການຕໍ່ຄັ້ງ");
     renderImportPreview();
-    confirmButton.disabled = false;
   } catch (err) {
     importDraft = null;
     preview.innerHTML = `<span style="color:#e2445c;font-weight:700;">❌ ${escHtml(err.message)}</span>`;
@@ -751,13 +759,14 @@ async function readImportFile(file) {
 function renderImportPreview() {
   const preview = document.getElementById("importPreview");
   const sheetIndex = Number(document.getElementById("importSheetSelect").value);
-  const groupIndex = Number(document.getElementById("importGroupSelect").value);
-  const group = sheetsData[sheetIndex] && sheetsData[sheetIndex].groups[groupIndex];
+  const groupValue = document.getElementById("importGroupSelect").value;
+  const groupIndex = Number(groupValue);
+  const group = sheetsData[sheetIndex] && sheetsData[sheetIndex].groups[groupValue === "__NEW__" ? 0 : groupIndex];
   if (!group || !importDraft) return;
   const headers = Object.keys(importDraft[0] || {});
-  const hasItem = headers.some(h => ["item", "item name", "title"].includes(importKey(h)));
+  const hasItem = headers.some(h => IMPORT_ITEM_HEADERS.includes(importKey(h)));
   const columnNames = group.columns.map(c => importKey(c.name));
-  const ignored = headers.filter(h => !["item", "item name", "title", "record id", "id"].includes(importKey(h)) && !columnNames.includes(importKey(h)));
+  const ignored = headers.filter(h => ![...IMPORT_ITEM_HEADERS, "record id", "id"].includes(importKey(h)) && !columnNames.includes(importKey(h)));
   const example = importDraft.slice(0, 5).map(row => `<tr>${headers.slice(0, 6).map(h => `<td style="padding:4px 7px;border-top:1px solid var(--border-light);">${escHtml(row[h])}</td>`).join("")}</tr>`).join("");
   preview.innerHTML = `
     <div style="font-weight:800;color:${hasItem ? "#00a85a" : "#e2445c"};">${hasItem ? "✅" : "❌"} ພົບ ${importDraft.length} ລາຍການ${hasItem ? "" : " — ບໍ່ພົບຖັນ Item"}</div>
@@ -785,13 +794,31 @@ function coerceImportValue(column, value) {
 function confirmDataImport() {
   if (!importDraft) return;
   const sheetIndex = Number(document.getElementById("importSheetSelect").value);
-  const groupIndex = Number(document.getElementById("importGroupSelect").value);
+  const groupValue = document.getElementById("importGroupSelect").value;
+  let groupIndex = Number(groupValue);
   const mode = document.getElementById("importModeSelect").value;
-  const group = sheetsData[sheetIndex] && sheetsData[sheetIndex].groups[groupIndex];
+  const sheet = sheetsData[sheetIndex];
+  let group = sheet && sheet.groups[groupIndex];
+  if (groupValue === "__NEW__") {
+    const name = document.getElementById("importNewGroupName").value.trim();
+    if (!name) return alert("ກະລຸນາໃສ່ຊື່ Group ໃໝ່");
+    const sourceGroup = sheet && sheet.groups[0];
+    if (!sourceGroup) return alert("ບໍ່ພົບໂຄງສ້າງ Group ຕົ້ນແບບ");
+    group = {
+      id: "g_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+      title: name,
+      color: sheet.color || "#579bfc",
+      collapsed: false,
+      columns: JSON.parse(JSON.stringify(sourceGroup.columns)),
+      rows: []
+    };
+    sheet.groups.push(group);
+    groupIndex = sheet.groups.length - 1;
+  }
   if (!group) return alert("ບໍ່ພົບ Sheet ຫຼື Group ປາຍທາງ");
   let added = 0, updated = 0, skipped = 0;
   importDraft.forEach(record => {
-    const title = String(importCell(record, ["item", "item name", "title"]) || "").trim();
+    const title = String(importCell(record, IMPORT_ITEM_HEADERS) || "").trim();
     if (!title) { skipped++; return; }
     const recordId = String(importCell(record, ["record id", "id"]) || "").trim();
     let row = mode === "upsert" && recordId ? group.rows.find(r => r.id === recordId) : null;
