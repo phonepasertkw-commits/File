@@ -669,14 +669,12 @@ function importJSONBackup(file) {
 /* ============================== DATA IMPORT ============================== */
 
 let importDraft = [];
-let importMeta = { format: "", sourceSheets: [], totalRows: 0, headers: [] };
+let importMeta = { format: "", sourceSheets: [], skippedSheets: [], totalRows: 0, headers: [] };
 
 // Import is intentionally tolerant: different source workbooks often use
 // Lao/English headers, duplicate headers, grouped sections, or several sheets.
 const IMPORT_ITEM_HEADERS = [
-  "item", "item name", "title", "activity", "marketing activity",
-  "concept artwork", "concept artwork / marketing activity", "artwork",
-  "ປະເພດ artwork", "ກິດຈະກຳການຕະຫຼາດ", "ກິດຈະກຳ", "ລາຍການ"
+  "item", "item name", "title", "ລາຍການ"
 ];
 const IMPORT_MODEL_HEADERS = [
   "model", "model name", "vehicle model", "ຮຸ່ນລົດ", "ລຸ້ນ", "ລຸ້ນລົດ", "ລຸ້ນລົດ"
@@ -708,11 +706,11 @@ function importBaseKey(value) {
 }
 function canonicalImportHeader(value) {
   const k = importKey(value), b = importBaseKey(value);
-  if (IMPORT_ITEM_HEADERS.includes(k) || IMPORT_ITEM_HEADERS.includes(b)) return "marketing activity";
-  if (IMPORT_MODEL_HEADERS.includes(k) || IMPORT_MODEL_HEADERS.includes(b)) return "model";
   for (const [canonical, aliases] of Object.entries(IMPORT_HEADER_ALIASES)) {
     if (aliases.some(a => importKey(a) === k || importKey(a) === b)) return canonical;
   }
+  if (IMPORT_MODEL_HEADERS.includes(k) || IMPORT_MODEL_HEADERS.includes(b)) return "model";
+  if (IMPORT_ITEM_HEADERS.includes(k) || IMPORT_ITEM_HEADERS.includes(b)) return "item";
   return k;
 }
 function sameImportHeader(a, b) {
@@ -836,11 +834,10 @@ function importCell(record, names, options = {}) {
 }
 function guessRecordItemHeader(record) {
   const headers = Object.keys(record || {}).filter(h => !String(h).startsWith("__"));
-  const priorities = [IMPORT_ITEM_HEADERS, IMPORT_MODEL_HEADERS, ["ກຸ່ມ content", "group", "content group", "ລຳດັບ", "sequence", "rank"]];
-  for (const list of priorities) {
-    const hit = headers.find(h => list.some(x => sameImportHeader(h, x) || importKey(h) === importKey(x)) && String(record[h] || "").trim() !== "");
-    if (hit) return hit;
-  }
+  const modelHit = headers.find(h => IMPORT_MODEL_HEADERS.some(x => sameImportHeader(h, x) || importKey(h) === importKey(x)) && String(record[h] || "").trim() !== "");
+  if (modelHit) return modelHit;
+  const itemHit = headers.find(h => IMPORT_ITEM_HEADERS.some(x => sameImportHeader(h, x) || importKey(h) === importKey(x)) && String(record[h] || "").trim() !== "");
+  if (itemHit) return itemHit;
   return headers.find(h => String(record[h] || "").trim() !== "") || headers[0] || null;
 }
 function getSelectedImportItemHeader() {
@@ -851,17 +848,16 @@ function populateImportItemColumns() {
   const select = document.getElementById("importItemColumnSelect");
   const wrap = document.getElementById("importItemColumnWrap");
   const headers = allImportHeaders(importDraft);
-  const preferred = headers.find(h => IMPORT_ITEM_HEADERS.some(x => importKey(x) === importKey(h))) ||
-    headers.find(h => IMPORT_ITEM_HEADERS.some(x => canonicalImportHeader(x) === canonicalImportHeader(h))) ||
-    headers.find(h => IMPORT_MODEL_HEADERS.some(x => importKey(x) === importKey(h)));
-  select.innerHTML = `<option value="">-- ໃຫ້ລະບົບເລືອກ Item ອັດຕະໂນມັດ --</option>` +
+  const preferred = headers.find(h => IMPORT_MODEL_HEADERS.some(x => importKey(x) === importKey(h) || canonicalImportHeader(h) === "model")) ||
+    headers.find(h => IMPORT_ITEM_HEADERS.some(x => importKey(x) === importKey(h) || canonicalImportHeader(h) === "item"));
+  select.innerHTML = `<option value="">-- ໃຫ້ລະບົບເລືອກ Model/Item ອັດຕະໂນມັດ --</option>` +
     headers.map(h => `<option value="${escAttr(h)}">${escHtml(h)}</option>`).join("");
   if (preferred) select.value = preferred;
   wrap.style.display = headers.length ? "block" : "none";
 }
 function openImportModal() {
   importDraft = [];
-  importMeta = { format: "", sourceSheets: [], totalRows: 0, headers: [] };
+  importMeta = { format: "", sourceSheets: [], skippedSheets: [], totalRows: 0, headers: [] };
   document.getElementById("dataImportFile").value = "";
   document.getElementById("confirmImportBtn").disabled = true;
   document.getElementById("importPreview").innerText = "ເລືອກຟາຍເພື່ອກວດຂໍ້ມູນ...";
@@ -925,6 +921,17 @@ async function readImportFile(file) {
         const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false, blankrows: true });
         if (!aoa.some(r => !rowIsBlank(r))) return;
         const parsed = arrayToImportRecords(aoa, sheetName);
+        const canonicalHeaders = (parsed.headers || []).map(canonicalImportHeader);
+        // Only merge sheets that look like the main artwork/calendar plan.
+        // Strategy/reference sheets stay out of the Board table so they do not
+        // create unrelated rows/columns and make the layout messy.
+        const looksLikeBoardPlan = canonicalHeaders.includes("date") &&
+          (canonicalHeaders.includes("model") || canonicalHeaders.includes("item"));
+        if (!looksLikeBoardPlan) {
+          importMeta.skippedSheets = importMeta.skippedSheets || [];
+          importMeta.skippedSheets.push(sheetName);
+          return;
+        }
         allRecords.push(...parsed.records);
         sourceSheets.push(sheetName);
       });
@@ -942,7 +949,7 @@ async function readImportFile(file) {
     renderImportPreview();
   } catch (err) {
     importDraft = [];
-    importMeta = { format: "", sourceSheets: [], totalRows: 0, headers: [] };
+    importMeta = { format: "", sourceSheets: [], skippedSheets: [], totalRows: 0, headers: [] };
     preview.innerHTML = `<span style="color:#e2445c;font-weight:700;">❌ ${escHtml(err.message)}</span>`;
   }
 }
@@ -968,7 +975,8 @@ function renderImportPreview() {
   preview.innerHTML = `
     <div style="font-weight:800;color:#00a85a;">✅ ອ່ານໄດ້ ${importDraft.length} ລາຍການ — ພ້ອມ Import ທັງໝົດ</div>
     <div style="margin:5px 0;">${escHtml(importMeta.format || "-")} · Sheet/Source: ${escHtml((importMeta.sourceSheets || []).join(", ") || "-")}</div>
-    <div style="margin:5px 0;">ຈຳນວນຖັນທີ່ພົບ: ${headers.length} · ${itemHeader ? `Item: ${escHtml(itemHeader)}${blankByChosen ? ` (ວ່າງ ${blankByChosen} ແຖວ → ລະບົບຈະໃຊ້ Item ສຳຮອງ)` : ""}` : `ໃຫ້ລະບົບເລືອກ Item ຕາມແຕ່ລະແຖວ`}</div>
+    ${(importMeta.skippedSheets || []).length ? `<div style="color:#fdab3d;">ℹ️ ບໍ່ນຳເຂົ້າ Sheet ທີ່ບໍ່ແມ່ນແຜນງານ: ${importMeta.skippedSheets.map(escHtml).join(", ")}</div>` : ""}
+    <div style="margin:5px 0;">ຈຳນວນຖັນທີ່ພົບ: ${headers.length} · ${itemHeader ? `Item: ${escHtml(itemHeader)}${blankByChosen ? ` (ວ່າງ ${blankByChosen} ແຖວ → ລະບົບຈະໃຊ້ Item ສຳຮອງ)` : ""}` : `ໃຫ້ລະບົບໃຊ້ Model/Item ເປັນຊື່ລາຍການ`}</div>
     <div style="margin:5px 0;">ຖັນ: ${headers.map(escHtml).join(", ")}</div>
     <div style="color:#00a85a;">✅ ຈະບໍ່ຂ້າມແຖວຂໍ້ມູນ; ແມ່ນແຕ່ຖ້າ Item ບໍ່ວ່າງບາງແຖວ ຈະໃຊ້ຄ່າສຳຮອງໃຫ້</div>
     <table style="margin-top:7px;border-collapse:collapse;min-width:100%;"><thead><tr>${sampleHeaders.map(h => `<th style="padding:4px 7px;text-align:left;border-top:1px solid var(--border-light);">${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${examples}</tbody></table>`;
@@ -983,40 +991,64 @@ function inferImportColumnType(header, records) {
   return "text";
 }
 function ensureImportColumns(group) {
-  const headers = allImportHeaders(importDraft);
-  const selectedItem = getSelectedImportItemHeader();
-  headers.forEach(sourceHeader => {
-    // The row title already stores the selected Item value; don't create a duplicate column for it.
-    if (selectedItem && sameImportHeader(sourceHeader, selectedItem)) return;
-    const exists = group.columns.some(c => sameImportHeader(c.name, sourceHeader));
-    if (exists) return;
-    const canonical = canonicalImportHeader(sourceHeader);
-    const aliases = IMPORT_HEADER_ALIASES[canonical] || [];
-    const canonicalMatch = group.columns.find(c => aliases.some(a => sameImportHeader(c.name, a)));
-    if (canonicalMatch) return;
-    group.columns.push({
-      id: "c_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
-      name: String(sourceHeader),
-      type: inferImportColumnType(sourceHeader, importDraft),
-      options: inferImportColumnType(sourceHeader, importDraft) === "select" ? [] : undefined
-    });
+  const headers=allImportHeaders(importDraft);
+  const selectedItem=getSelectedImportItemHeader();
+  const ignored=new Set(["item","model","index","sequence","rank"]);
+  headers.forEach(sourceHeader=>{
+    if(selectedItem && sameImportHeader(sourceHeader,selectedItem)) return;
+    const canonical=canonicalImportHeader(sourceHeader);
+    if(ignored.has(canonical) || importKey(sourceHeader)==="index") return;
+    const existing=(group.columns||[]).find(c=>canonicalImportHeader(c.name)===canonical || sameImportHeader(c.name,sourceHeader));
+    if(existing) return;
+    group.columns.push({id:"c_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),name:String(sourceHeader),type:canonical==="date"?"date":"text"});
+  });
+  reorderImportColumns(group);
+}
+function parseImportDateValue(value) {
+  const raw = String(value == null ? "" : value).trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(raw)) {
+    const [y,m,d] = raw.split("-").map(Number);
+    const dt = new Date(y,m-1,d);
+    if (dt.getFullYear()===y && dt.getMonth()===m-1 && dt.getDate()===d) return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  }
+  const dmy=raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(dmy){
+    let a=Number(dmy[1]),b=Number(dmy[2]),y=Number(dmy[3]),day=a,month=b;
+    if(a<=12 && b>12){day=b;month=a;}
+    const dt=new Date(y,month-1,day);
+    if(dt.getFullYear()===y && dt.getMonth()===month-1 && dt.getDate()===day) return `${y}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+  }
+  const monthMap={"ມ.ກ":1,"ກ.ພ":2,"ມີ.ນ":3,"ມີ.ຄ":3,"ເມ.ສ":4,"ພ.ພ":5,"ມິ.ຖ":6,"ມ.ຖ":6,"ກ.ລ":7,"ສ.ຫ":8,"ກ.ຍ":9,"ຕ.ລ":10,"ພ.ຈ":11,"ທ.ວ":12,"ม.ค":1,"ก.พ":2,"มี.ค":3,"เม.ย":4,"พ.ค":5,"มิ.ย":6,"ก.ค":7,"ส.ค":8,"ก.ย":9,"ต.ค":10,"พ.ย":11,"ธ.ค":12};
+  const m=raw.match(/^(\d{1,2})\s*([^\d\s]+(?:\.[^\d\s]+)?)(?:\s*(\d{4}))?$/);
+  if(m){
+    const day=Number(m[1]), token=m[2].replace(/\.$/,""), month=monthMap[token]||monthMap[m[2]], year=m[3]?Number(m[3]):2026;
+    if(month && day>=1 && day<=31){
+      const dt=new Date(year,month-1,day);
+      if(dt.getFullYear()===year && dt.getMonth()===month-1 && dt.getDate()===day) return `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    }
+  }
+  const dt=new Date(raw);
+  return Number.isNaN(dt.getTime()) ? raw : dt.toISOString().slice(0,10);
+}
+function getDerivedLaoDay(dateValue){
+  const raw=String(dateValue||"").trim(); if(!raw) return "";
+  const dt=new Date(raw.length===10 ? raw+"T00:00:00" : raw); if(Number.isNaN(dt.getTime())) return "";
+  return ["ວັນອາທິດ","ວັນຈັນ","ວັນອັງຄານ","ວັນພຸດ","ວັນພະຫັດ","ວັນສຸກ","ວັນເສົາ"][dt.getDay()];
+}
+function findTargetColumn(group, canonical){ return (group.columns||[]).find(c=>canonicalImportHeader(c.name)===canonical) || null; }
+function reorderImportColumns(group){
+  const order=["date","day","marketing activity","channels","after-sales service","kpi target"];
+  const rank=new Map(order.map((k,i)=>[k,i]));
+  group.columns.sort((a,b)=>{
+    const ra=rank.has(canonicalImportHeader(a.name))?rank.get(canonicalImportHeader(a.name)):100;
+    const rb=rank.has(canonicalImportHeader(b.name))?rank.get(canonicalImportHeader(b.name)):100;
+    return ra-rb;
   });
 }
 function coerceImportValue(column, value) {
   const rawOriginal = value == null ? "" : String(value).trim();
-  if (column.type === "date") {
-    if (!rawOriginal) return "";
-    const m = rawOriginal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (m) {
-      const day = Number(m[1]), month = Number(m[2]), year = Number(m[3]);
-      const d = day > 12 ? day : month > 12 ? month : day;
-      const mo = day > 12 ? month : month > 12 ? day : month;
-      const candidate = `${year}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-      if (!Number.isNaN(Date.parse(candidate))) return candidate;
-    }
-    const dt = new Date(rawOriginal);
-    return Number.isNaN(dt.getTime()) ? rawOriginal : dt.toISOString().slice(0,10);
-  }
+  if (column.type === "date") return parseImportDateValue(rawOriginal);
   if (column.type === "checkbox") return ["true","1","yes","y","ແມ່ນ","ຕົກລົງ"].includes(rawOriginal.toLowerCase());
   if (column.type === "number" || column.type === "progress" || column.type === "rating") {
     if (!rawOriginal) return "";
@@ -1041,71 +1073,59 @@ function newImportRowId(preferredId, usedIds) {
   usedIds.add(id); return id;
 }
 function confirmDataImport() {
-  if (!importDraft || !importDraft.length) return;
-  const sheetIndex = Number(document.getElementById("importSheetSelect").value);
-  const groupValue = document.getElementById("importGroupSelect").value;
-  let groupIndex = Number(groupValue);
-  const mode = document.getElementById("importModeSelect").value;
-  const sheet = sheetsData[sheetIndex];
-  let group = sheet && sheet.groups[groupIndex];
-  if (!sheet) return alert("ບໍ່ພົບ Sheet ປາຍທາງ");
-
-  if (groupValue === "__NEW__") {
-    const name = document.getElementById("importNewGroupName").value.trim();
-    if (!name) return alert("ກະລຸນາໃສ່ຊື່ Group ໃໝ່");
-    const sourceGroup = sheet.groups[0];
-    if (!sourceGroup) return alert("ບໍ່ພົບໂຄງສ້າງ Group ຕົ້ນແບບ");
-    group = {
-      id: "g_" + Date.now() + "_" + Math.random().toString(36).slice(2,6),
-      title: name,
-      color: sheet.color || "#579bfc",
-      collapsed: false,
-      columns: JSON.parse(JSON.stringify(sourceGroup.columns || [])),
-      rows: []
-    };
-    sheet.groups.push(group);
-    groupIndex = sheet.groups.length - 1;
+  if(!importDraft || !importDraft.length) return;
+  const sheetIndex=Number(document.getElementById("importSheetSelect").value);
+  const groupValue=document.getElementById("importGroupSelect").value;
+  let groupIndex=Number(groupValue);
+  const mode=document.getElementById("importModeSelect").value;
+  const sheet=sheetsData[sheetIndex];
+  let group=sheet && sheet.groups[groupIndex];
+  if(!sheet) return alert("ບໍ່ພົບ Sheet ປາຍທາງ");
+  if(groupValue==="__NEW__"){
+    const name=document.getElementById("importNewGroupName").value.trim() || ((importMeta.sourceSheets||[])[0]) || "Imported Data";
+    const sourceGroup=sheet.groups[0];
+    if(!sourceGroup) return alert("ບໍ່ພົບໂຄງສ້າງ Group ຕົ້ນແບບ");
+    group={id:"g_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),title:name,color:sheet.color||"#579bfc",collapsed:false,columns:JSON.parse(JSON.stringify(sourceGroup.columns||[])),rows:[]};
+    sheet.groups.push(group); groupIndex=sheet.groups.length-1;
   }
-  if (!group) return alert("ບໍ່ພົບ Group ປາຍທາງ");
-
-  // Never silently throw away source columns: create missing target columns automatically.
+  if(!group) return alert("ບໍ່ພົບ Group ປາຍທາງ");
   ensureImportColumns(group);
-  const selectedItem = getSelectedImportItemHeader();
-  const usedIds = new Set(group.rows.map(r => String(r.id || "")));
-  let added = 0, updated = 0;
-
-  importDraft.forEach((record, index) => {
-    let title = "";
-    if (selectedItem && String(record[selectedItem] || "").trim()) title = String(record[selectedItem]).trim();
-    if (!title) {
-      const fallbackHeader = guessRecordItemHeader(record);
-      title = fallbackHeader ? String(record[fallbackHeader] == null ? "" : record[fallbackHeader]).trim() : "";
-    }
-    // A non-empty source row must become a board row, even when every likely title field is blank.
-    if (!title) title = `Imported row ${record.__sourceRow || index + 1}`;
-
-    const recordId = String(importCell(record, ["record id", "id", "recordid"]) || "").trim();
-    let row = mode === "upsert" && recordId ? group.rows.find(r => String(r.id || "") === recordId) : null;
-    if (row) { updated++; row.title = title; }
-    else { row = { id: newImportRowId(recordId, usedIds), title, values: {} }; group.rows.push(row); added++; }
-
-    // Map every source field to a matching target column. Values from unknown headers
-    // land in newly-created columns, so nothing from the file is silently discarded.
-    group.columns.forEach(column => {
-      let value = resolveImportedValue(record, column.name, selectedItem);
-      if ((value === "" || value == null) && selectedItem && sameImportHeader(column.name, selectedItem)) {
-        value = record[selectedItem] || "";
-      }
-      if (value !== "" && value !== undefined && value !== null) row.values[column.id] = coerceImportValue(column, value);
-      else if (!(column.id in row.values)) row.values[column.id] = "";
+  const selectedItem=getSelectedImportItemHeader();
+  const usedIds=new Set(group.rows.map(r=>String(r.id||"")));
+  let added=0,updated=0,sourceRows=0;
+  importDraft.forEach((record,index)=>{
+    const hasAny=Object.keys(record).some(k=>!String(k).startsWith("__") && String(record[k]==null?"":record[k]).trim()!=="");
+    if(!hasAny) return; sourceRows++;
+    const itemHeader=selectedItem && String(record[selectedItem]||"").trim()?selectedItem:guessRecordItemHeader(record);
+    let title=itemHeader?String(record[itemHeader]==null?"":record[itemHeader]).trim():"";
+    if(!title) title=`Imported row ${record.__sourceRow||index+1}`;
+    const recordId=String(importCell(record,["record id","id","recordid"])||"").trim();
+    let row=mode==="upsert" && recordId ? group.rows.find(r=>String(r.id||"")===recordId) : null;
+    if(row){ updated++; row.title=title; } else { row={id:newImportRowId(recordId,usedIds),title,values:{}}; group.rows.push(row); added++; }
+    let importedDate="";
+    group.columns.forEach(column=>{
+      const canonical=canonicalImportHeader(column.name);
+      if(["item","model","index"].includes(canonical)) return;
+      let value=resolveImportedValue(record,column.name,itemHeader);
+      if(!value && canonical==="date") value=importCell(record,["date","ວັນທີ"],{exclude:[itemHeader]});
+      if(!value && canonical==="day") value=importCell(record,["day","ວັນ","ມື້"],{exclude:[itemHeader]});
+      if(!value && canonical==="marketing activity") value=importCell(record,["marketing activity","concept artwork","activity","artwork"],{exclude:[itemHeader]});
+      if(!value && canonical==="kpi target") value=importCell(record,["kpi target","target","ເປົ້າໝາຍ"],{exclude:[itemHeader]});
+      if(canonical==="date"){
+        importedDate=coerceImportValue(column,value); row.values[column.id]=importedDate;
+      } else if(canonical==="day"){
+        const existingDateCol=findTargetColumn(group,"date");
+        const fallbackDate=existingDateCol?row.values[existingDateCol.id]:"";
+        const dayText=String(value||"").trim() || getDerivedLaoDay(importedDate||fallbackDate);
+        row.values[column.id]=dayText?coerceImportValue(column,dayText):"";
+      } else if(value!=="" && value!==undefined && value!==null){
+        row.values[column.id]=coerceImportValue(column,value);
+      } else if(!(column.id in row.values)) row.values[column.id]="";
     });
   });
-
-  activeSheetIdx = sheetIndex;
-  renderBoard();
-  saveToGoogleSheets();
-  closeImportModal();
-  alert(`✅ Import ສຳເລັດ: ອ່ານ ${importDraft.length} ລາຍການ → ເພີ່ມ ${added}, ອັບເດດ ${updated} · ບໍ່ຂ້າມແຖວຂໍ້ມູນ`);
+  reorderImportColumns(group);
+  activeSheetIdx=sheetIndex; renderBoard(); saveToGoogleSheets(); closeImportModal();
+  alert(`✅ Import ສຳເລັດ: ອ່ານ ${sourceRows} ລາຍການ → ເພີ່ມ ${added}, ອັບເດດ ${updated} · ຈັດເປັນຕາຕະລາງຕາມ Board`);
 }
 
 function downloadImportTemplate() {
