@@ -1135,20 +1135,43 @@ function saveToGoogleSheets() {
   }, 1000);
 }
 
+function dedupeGroupsByTitle(boardSheets) {
+  return (boardSheets || []).map(sheet => {
+    const groups = Array.isArray(sheet.groups) ? sheet.groups : [];
+    const seen = new Map();
+    groups.forEach(group => {
+      const key = String(group.title || "").trim().toLowerCase();
+      if (!key) return;
+      const existing = seen.get(key);
+      if (!existing || (group.rows || []).length > (existing.rows || []).length) {
+        seen.set(key, group);
+      }
+    });
+    const kept = Array.from(seen.values());
+    return { ...sheet, groups: kept.length ? kept : groups };
+  });
+}
+
 function loadFromGoogleSheets() {
   const syncStatus = document.getElementById("syncStatus");
   if (!googleScriptUrl) { if (syncStatus) syncStatus.innerText = "☁️ Ready (ຍັງບໍ່ຕັ້ງຄ່າ Sheets)"; return; }
   if (syncStatus) syncStatus.innerText = "🔄 ກຳລັງກວດສອບ...";
-  fetch(googleScriptUrl)
+  fetch(googleScriptUrl, { cache: "no-store" })
     .then(res => res.json())
     .then(data => {
-      if (data && data.sheetsData && data.sheetsData.length > 0) {
-        sheetsData = data.sheetsData;
+      if (data && Array.isArray(data.sheetsData) && data.sheetsData.length > 0) {
+        // Google Sheets is the shared source, but remove duplicate groups created by
+        // previous imports. When the same group title appears more than once, keep
+        // the copy containing the most rows so imported data is not lost.
+        sheetsData = dedupeGroupsByTitle(data.sheetsData);
         migrateLegacyColumns();
         if (data.staffOptions) staffOptions = data.staffOptions;
         saveToLocalCache();
         renderBoard();
         if (syncStatus) { syncStatus.innerText = "☁️ Synced with Google Sheets"; syncStatus.className = "sync-status"; }
+        // Persist the cleaned structure back to Google Sheets so the duplicate
+        // groups do not come back on the next refresh.
+        saveToGoogleSheets();
       } else {
         saveToGoogleSheets();
       }
