@@ -272,7 +272,7 @@
           <div style="font-weight:800;margin-bottom:6px;font-size:13px;">⬆️ ນຳເຂົ້າຂໍ້ມູນ (Import)</div>
           <button class="btn-primary" onclick="openImportModal()">⬆️ Import CSV / Excel / JSON</button>
           <button class="btn-secondary" onclick="downloadImportTemplate()">⬇️ Download Template</button>
-          <div style="font-size:11.5px;color:var(--text-secondary);margin-top:7px;line-height:1.45;">CSV/Excel ຈະເພີ່ມລາຍການເຂົ້າ Board. JSON Backup ຈະກູ້ຄືນຂໍ້ມູນທັງໝົດ.</div>
+          <div style="font-size:11.5px;color:var(--text-secondary);margin-top:7px;line-height:1.45;">CSV/XLSX ຈະເພີ່ມລາຍການເຂົ້າ Board ໂດຍອ່ານຂໍ້ມູນທັງໝົດຈາກຕາຕະລາງຫຼັກ. JSON Backup ຈະກູ້ຄືນຂໍ້ມູນທັງໝົດ.</div>
         </div>
       </div>
     </div>
@@ -284,7 +284,7 @@
       <div class="modal-header"><span>⬆️ Import Data</span><button class="icon-btn" onclick="closeImportModal()" style="font-size:16px;">✕</button></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <label style="font-size:13px;font-weight:700;">ເລືອກໄຟລ໌
-          <input id="dataImportFile" type="file" accept=".csv,.xlsx,.xls,.json,text/csv,application/json" onchange="readImportFile(this.files[0])" style="display:block;width:100%;margin-top:6px;">
+          <input id="dataImportFile" type="file" accept=".csv,.xlsx,.json,.txt,text/csv,application/json" onchange="readImportFile(this.files[0])" style="display:block;width:100%;margin-top:6px;">
         </label>
         <label style="font-size:13px;font-weight:700;">ນຳເຂົ້າໄປທີ່ Sheet
           <select id="importSheetSelect" onchange="renderImportGroupOptions()" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);"></select>
@@ -305,7 +305,7 @@
           <select id="importItemColumnSelect" onchange="renderImportPreview()" style="display:block;width:100%;padding:8px;margin-top:6px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);color:var(--text-primary);"></select>
         </label>
       </div>
-      <div style="font-size:12px;color:var(--text-secondary);margin:12px 0 6px;line-height:1.5;">ຕ້ອງມີຖັນ <b>Item</b>. ຊື່ຖັນອື່ນໆ ຕ້ອງກົງກັບຊື່ Column ໃນ Group. ໃຊ້ <b>Record ID</b> ເມື່ອຕ້ອງການອັບເດດລາຍການເກົ່າ.</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin:12px 0 6px;line-height:1.5;">XLSX: ລະບົບຈະຫາຕາຕະລາງຫຼັກໃຫ້ເອງ ແລະໃຊ້ <b>ລຸ້ນລົດ / Model</b> ເປັນ Item ອັດຕະໂນມັດ. CSV/JSON: ສາມາດເລືອກ Item ເອງ. <b>Record ID</b> ໃຊ້ເມື່ອຕ້ອງການອັບເດດລາຍການເກົ່າ.</div>
       <div id="importPreview" style="border:1px solid var(--border-light);border-radius:8px;padding:10px;min-height:78px;font-size:12px;overflow:auto;color:var(--text-secondary);">ເລືອກໄຟລ໌ເພື່ອເບິ່ງຕົວຢ່າງ</div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
         <button class="btn-secondary" onclick="closeImportModal()">ຍົກເລີກ</button>
@@ -669,37 +669,32 @@ function importJSONBackup(file) {
 /* ============================== DATA IMPORT ============================== */
 
 let importDraft = [];
-let importMeta = { format: "", sourceSheets: [], skippedSheets: [], totalRows: 0, headers: [] };
+let importMeta = { format: "", sourceSheets: [], skippedSheets: [], totalRows: 0, headers: [], warnings: [] };
 
-// Import is intentionally tolerant: different source workbooks often use
-// Lao/English headers, duplicate headers, grouped sections, or several sheets.
 const IMPORT_ITEM_HEADERS = [
-  "item", "item name", "title", "ລາຍການ"
-];
-const IMPORT_MODEL_HEADERS = [
-  "model", "model name", "vehicle model", "ຮຸ່ນລົດ", "ລຸ້ນ", "ລຸ້ນລົດ", "ລຸ້ນລົດ"
+  "item", "item name", "title", "model", "model name", "vehicle model",
+  "ຮຸ່ນລົດ", "ລຸ້ນ", "ລຸ້ນລົດ", "ລາຍການ", "marketing activity"
 ];
 const IMPORT_HEADER_ALIASES = {
   "date": ["date", "ວັນທີ", "ວນທ", "ວັນທີລົງ"],
   "day": ["day", "ວັນ", "ມື້", "ວັນໃນອາທິດ"],
   "channels": ["channels", "channel", "social", "social channels", "ຊ່ອງທາງ", "ຊ່ອງທາງສື່", "ສື່ທີ່ໃຊ້"],
-  "after-sales service": ["after-sales service", "after sales service", "after-sales", "after sales", "after-sales / follow-up", "after sales / follow-up", "ບໍລິການຫຼັງການຂາຍ", "ຫຼັງການຂາຍ"],
-  "kpi target": ["kpi target", "kpi", "target", "ເປົ້າໝາຍ", "ເປົ້າໝາຍ kpi"],
+  "after-sales service": ["after-sales service", "after sales service", "after-sales", "after sales", "after-sales / follow-up", "after sales / follow-up", "after-sales / follow-up", "ບໍລິການຫຼັງການຂາຍ", "ຫຼັງການຂາຍ", "follow-up"],
+  "kpi target": ["kpi target", "kpi", "target", "ເປົ້າໝາຍ", "ເປົ້າໝາຍ kpi", "ບົດບາດຫຼັກ"],
   "marketing activity": [
     "marketing activity", "activity", "concept artwork", "concept artwork / marketing activity",
-    "artwork", "ປະເພດ artwork", "ກິດຈະກຳການຕະຫຼາດ", "ກິດຈະກຳ", "ລາຍການ"
+    "artwork", "ປະເພດ artwork", "ກິດຈະກຳການຕະຫຼາດ", "ກິດຈະກຳ", "ແນວທາງ"
   ],
-  "model": IMPORT_MODEL_HEADERS
+  "model": IMPORT_ITEM_HEADERS
 };
+const IMPORT_MODEL_HEADERS = ["model", "model name", "vehicle model", "ຮຸ່ນລົດ", "ລຸ້ນ", "ລຸ້ນລົດ", "ລຸ້ນ", "ລຸ້ນລົດ"];
 
 function importKey(value) {
   return String(value == null ? "" : value)
     .replace(/^\uFEFF/, "")
     .replace(/[\r\n\t]+/g, " ")
     .replace(/[‐‑‒–—−]/g, "-")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+    .trim().toLowerCase().replace(/\s+/g, " ");
 }
 function importBaseKey(value) {
   return importKey(value).replace(/(?:__|_)(?:\d+|\d+\b)$/g, "").trim();
@@ -709,8 +704,6 @@ function canonicalImportHeader(value) {
   for (const [canonical, aliases] of Object.entries(IMPORT_HEADER_ALIASES)) {
     if (aliases.some(a => importKey(a) === k || importKey(a) === b)) return canonical;
   }
-  if (IMPORT_MODEL_HEADERS.includes(k) || IMPORT_MODEL_HEADERS.includes(b)) return "model";
-  if (IMPORT_ITEM_HEADERS.includes(k) || IMPORT_ITEM_HEADERS.includes(b)) return "item";
   return k;
 }
 function sameImportHeader(a, b) {
@@ -726,119 +719,89 @@ function makeUniqueHeaders(rawHeaders) {
     return seen[key] === 1 ? base : `${base}__${seen[key]}`;
   });
 }
-function rowIsBlank(row) {
-  return !Array.isArray(row) || row.every(v => String(v == null ? "" : v).trim() === "");
-}
+function rowIsBlank(row) { return !Array.isArray(row) || row.every(v => String(v == null ? "" : v).trim() === ""); }
+function valueCount(row) { return (row || []).filter(v => String(v == null ? "" : v).trim() !== "").length; }
 function headerScore(row) {
   const keys = (row || []).map(importKey).filter(Boolean);
+  if (!keys.length) return 0;
   let score = 0;
-  if (keys.some(k => IMPORT_ITEM_HEADERS.includes(k) || IMPORT_ITEM_HEADERS.includes(importBaseKey(k)))) score += 5;
-  if (keys.some(k => IMPORT_MODEL_HEADERS.includes(k) || IMPORT_MODEL_HEADERS.includes(importBaseKey(k)))) score += 3;
-  if (keys.some(k => canonicalImportHeader(k) === "date")) score += 2;
-  if (keys.some(k => canonicalImportHeader(k) === "channels")) score += 2;
+  if (keys.some(k => canonicalImportHeader(k) === "date")) score += 5;
+  if (keys.some(k => canonicalImportHeader(k) === "model")) score += 5;
+  if (keys.some(k => canonicalImportHeader(k) === "item")) score += 4;
+  if (keys.some(k => canonicalImportHeader(k) === "marketing activity")) score += 3;
   if (keys.some(k => canonicalImportHeader(k) === "kpi target")) score += 1;
-  if (keys.length >= 2) score += 1;
-  return score;
-}
-function valueCount(row) {
-  return (row || []).filter(v => String(v == null ? "" : v).trim() !== "").length;
+  if (keys.some(k => canonicalImportHeader(k) === "channels")) score += 1;
+  if (keys.some(k => canonicalImportHeader(k) === "after-sales service")) score += 1;
+  return score + (keys.length >= 2 ? 1 : 0);
 }
 function looksLikeHeader(row, nextRow) {
   const score = headerScore(row);
-  if (score >= 4) return true;
-  // Generic tables without obvious aliases: a text-heavy row followed by data.
-  if (score >= 2 && valueCount(row) >= 2) return true;
+  if (score >= 5) return true;
+  if (score >= 3 && valueCount(row) >= 2) return true;
   if (valueCount(row) >= 2 && nextRow && valueCount(nextRow) >= 1) {
-    const unique = new Set((row || []).map(importKey).filter(Boolean));
-    const textHeavy = (row || []).filter(v => /[A-Za-z\u0E80-\u0EFF]/.test(String(v || ""))).length >= Math.max(2, Math.ceil(valueCount(row) * 0.6));
-    return unique.size === valueCount(row) && textHeavy;
+    const textHeavy = row.filter(v => /[A-Za-z\u0E80-\u0EFF]/.test(String(v || ""))).length >= 2;
+    return textHeavy;
   }
   return false;
 }
 function arrayToImportRecords(rows, sourceSheet) {
-  const cleaned = (rows || []).map((r, idx) => ({ row: Array.isArray(r) ? r.map(v => v == null ? "" : v) : [], originalRow: idx + 1 }))
+  const cleaned = (rows || []).map((r, idx) => ({row: Array.isArray(r) ? r.map(v => v == null ? "" : v) : [], originalRow: idx + 1}))
     .filter(x => !rowIsBlank(x.row));
   const records = [];
-  let headers = null;
-  let groupTitle = "";
+  let headers = null, groupTitle = "";
   for (let i = 0; i < cleaned.length; i++) {
     const current = cleaned[i].row;
     const next = cleaned[i + 1] ? cleaned[i + 1].row : [];
-
-    // Exported board format can have a one-cell group title directly above headers.
-    if (valueCount(current) === 1 && valueCount(next) >= 2 && looksLikeHeader(next, cleaned[i + 2]?.row || [])) {
+    if (valueCount(current) === 1 && valueCount(next) >= 2 && looksLikeHeader(next, cleaned[i + 2] ? cleaned[i + 2].row : [])) {
       groupTitle = String(current.find(v => String(v).trim() !== "") || "").trim();
       headers = null;
       continue;
     }
-    if (looksLikeHeader(current, next)) {
-      headers = makeUniqueHeaders(current);
-      continue;
-    }
     if (!headers) {
-      // Single-sheet ordinary table: first non-empty row becomes the header.
-      if (valueCount(current) >= 2) {
+      if (looksLikeHeader(current, next) || valueCount(current) >= 2) {
         headers = makeUniqueHeaders(current);
         continue;
       }
       continue;
     }
-
-    const rec = { __sourceSheet: sourceSheet || "", __sourceRow: cleaned[i].originalRow, __sourceGroup: groupTitle, __headers: headers.slice() };
-    headers.forEach((h, idx) => { rec[h] = current[idx] === undefined ? "" : current[idx]; });
+    // After a header has been established, only a *strong* header row can reset it.
+    // Do not treat ordinary text-heavy data rows as new headers.
+    if (headerScore(current) >= 5) {
+      headers = makeUniqueHeaders(current);
+      continue;
+    }
+    const rec = {__sourceSheet: sourceSheet || "", __sourceRow: cleaned[i].originalRow, __sourceGroup: groupTitle};
+    headers.forEach((h, idx) => rec[h] = current[idx] === undefined ? "" : current[idx]);
     if (headers.some(h => String(rec[h] == null ? "" : rec[h]).trim() !== "")) records.push(rec);
   }
-  return { records, headers: headers || [], groupTitle };
-}
-function parseDelimitedText(text) {
-  const sample = String(text || "").split(/\r?\n/).slice(0, 8).join("\n");
-  const delimiters = [",", "\t", ";", "|"];
-  const delimiter = delimiters.reduce((best, d) => (sample.split(d).length > sample.split(best).length ? d : best), ",");
-  const rows = [];
-  let row = [], current = "", quoted = false;
-  for (let i = 0; i < String(text || "").length; i++) {
-    const ch = text[i], next = text[i + 1];
-    if (ch === '"' && quoted && next === '"') { current += '"'; i++; }
-    else if (ch === '"') quoted = !quoted;
-    else if (ch === delimiter && !quoted) { row.push(current); current = ""; }
-    else if ((ch === "\n" || ch === "\r") && !quoted) {
-      if (ch === "\r" && next === "\n") i++;
-      row.push(current); current = "";
-      if (!rowIsBlank(row)) rows.push(row); row = [];
-    } else current += ch;
-  }
-  row.push(current);
-  if (!rowIsBlank(row)) rows.push(row);
-  return rows;
+  return {records, headers: headers || [], groupTitle};
 }
 function allImportHeaders(records) {
   const seen = new Map();
-  (records || []).forEach(rec => {
-    Object.keys(rec || {}).forEach(h => {
-      if (String(h).startsWith("__")) return;
-      const k = importKey(h);
-      if (!seen.has(k)) seen.set(k, h);
-    });
-  });
+  (records || []).forEach(rec => Object.keys(rec || {}).forEach(h => {
+    if (String(h).startsWith("__")) return;
+    const k = importKey(h);
+    if (k && !seen.has(k)) seen.set(k, h);
+  }));
   return [...seen.values()];
 }
 function importCell(record, names, options = {}) {
   const wanted = (names || []).map(importKey).filter(Boolean);
   const excluded = new Set((options.exclude || []).map(importKey));
-  const keys = Object.keys(record || {});
-  const key = keys.find(k => !excluded.has(importKey(k)) && wanted.includes(importKey(k)));
+  const keys = Object.keys(record || {}).filter(k => !excluded.has(importKey(k)));
+  let key = keys.find(k => wanted.includes(importKey(k)));
   if (key !== undefined) return record[key];
   const wantedCanonical = new Set(wanted.map(canonicalImportHeader));
-  const key2 = keys.find(k => !excluded.has(importKey(k)) && wantedCanonical.has(canonicalImportHeader(k)) && canonicalImportHeader(k) !== "") ;
-  return key2 === undefined ? "" : record[key2];
+  key = keys.find(k => wantedCanonical.has(canonicalImportHeader(k)));
+  return key === undefined ? "" : record[key];
 }
 function guessRecordItemHeader(record) {
   const headers = Object.keys(record || {}).filter(h => !String(h).startsWith("__"));
-  const modelHit = headers.find(h => IMPORT_MODEL_HEADERS.some(x => sameImportHeader(h, x) || importKey(h) === importKey(x)) && String(record[h] || "").trim() !== "");
-  if (modelHit) return modelHit;
-  const itemHit = headers.find(h => IMPORT_ITEM_HEADERS.some(x => sameImportHeader(h, x) || importKey(h) === importKey(x)) && String(record[h] || "").trim() !== "");
-  if (itemHit) return itemHit;
-  return headers.find(h => String(record[h] || "").trim() !== "") || headers[0] || null;
+  const model = headers.find(h => canonicalImportHeader(h) === "model" && String(record[h] || "").trim());
+  if (model) return model;
+  const item = headers.find(h => canonicalImportHeader(h) === "item" && String(record[h] || "").trim());
+  if (item) return item;
+  return headers.find(h => String(record[h] || "").trim()) || headers[0] || null;
 }
 function getSelectedImportItemHeader() {
   const select = document.getElementById("importItemColumnSelect");
@@ -848,292 +811,274 @@ function populateImportItemColumns() {
   const select = document.getElementById("importItemColumnSelect");
   const wrap = document.getElementById("importItemColumnWrap");
   const headers = allImportHeaders(importDraft);
-  const preferred = headers.find(h => IMPORT_MODEL_HEADERS.some(x => importKey(x) === importKey(h) || canonicalImportHeader(h) === "model")) ||
-    headers.find(h => IMPORT_ITEM_HEADERS.some(x => importKey(x) === importKey(h) || canonicalImportHeader(h) === "item"));
-  select.innerHTML = `<option value="">-- ໃຫ້ລະບົບເລືອກ Model/Item ອັດຕະໂນມັດ --</option>` +
-    headers.map(h => `<option value="${escAttr(h)}">${escHtml(h)}</option>`).join("");
+  const preferred = headers.find(h => canonicalImportHeader(h) === "model") || headers.find(h => canonicalImportHeader(h) === "item");
+  select.innerHTML = `<option value="">-- ໃຫ້ລະບົບເລືອກ Model/Item ອັດຕະໂນມັດ --</option>` + headers.map(h => `<option value="${escAttr(h)}">${escHtml(h)}</option>`).join("");
   if (preferred) select.value = preferred;
   wrap.style.display = headers.length ? "block" : "none";
 }
 function openImportModal() {
   importDraft = [];
-  importMeta = { format: "", sourceSheets: [], skippedSheets: [], totalRows: 0, headers: [] };
+  importMeta = {format:"", sourceSheets:[], skippedSheets:[], totalRows:0, headers:[], warnings:[]};
   document.getElementById("dataImportFile").value = "";
   document.getElementById("confirmImportBtn").disabled = true;
   document.getElementById("importPreview").innerText = "ເລືອກຟາຍເພື່ອກວດຂໍ້ມູນ...";
   const sheetSelect = document.getElementById("importSheetSelect");
-  sheetSelect.innerHTML = sheetsData.map((sheet, i) => `<option value="${i}" ${i === activeSheetIdx ? "selected" : ""}>${escHtml(sheet.name)}</option>`).join("");
+  sheetSelect.innerHTML = sheetsData.map((sheet,i) => `<option value="${i}" ${i===activeSheetIdx?"selected":""}>${escHtml(sheet.name)}</option>`).join("");
   renderImportGroupOptions();
   closeReportModal();
-  document.getElementById("importModal").style.display = "flex";
+  document.getElementById("importModal").style.display="flex";
 }
-function closeImportModal() { document.getElementById("importModal").style.display = "none"; }
-function renderImportGroupOptions() {
-  const sheetIndex = Number(document.getElementById("importSheetSelect").value);
-  const groupSelect = document.getElementById("importGroupSelect");
-  const groups = (sheetsData[sheetIndex] || {}).groups || [];
-  groupSelect.innerHTML = `<option value="__NEW__">＋ ສ້າງ Group ໃໝ່ຈາກຂໍ້ມູນນີ້</option>` +
-    groups.map((group, i) => `<option value="${i}" ${i === 0 ? "selected" : ""}>${escHtml(group.title)}</option>`).join("");
+function closeImportModal(){ document.getElementById("importModal").style.display="none"; }
+function renderImportGroupOptions(){
+  const si=Number(document.getElementById("importSheetSelect").value), gs=document.getElementById("importGroupSelect");
+  const groups=(sheetsData[si]||{}).groups||[];
+  gs.innerHTML=`<option value="__NEW__">＋ ສ້າງ Group ໃໝ່ຈາກຂໍ້ມູນນີ້</option>`+groups.map((g,i)=>`<option value="${i}">${escHtml(g.title)}</option>`).join("");
   toggleImportNewGroupName();
-  if (importDraft && importDraft.length) renderImportPreview();
+  if(importDraft.length) renderImportPreview();
 }
-function toggleImportNewGroupName() {
-  const isNew = document.getElementById("importGroupSelect").value === "__NEW__";
-  document.getElementById("importNewGroupNameWrap").style.display = isNew ? "block" : "none";
-}
-function loadSheetJSForImport() {
-  if (typeof XLSX !== "undefined") return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-    script.onload = resolve;
-    script.onerror = () => reject(new Error("ບໍ່ສາມາດໂຫຼດ Excel library ໄດ້"));
-    document.head.appendChild(script);
-  });
-}
-async function readImportFile(file) {
-  if (!file) return;
-  const preview = document.getElementById("importPreview");
-  const confirmButton = document.getElementById("confirmImportBtn");
-  confirmButton.disabled = true;
-  preview.innerText = "ກຳລັງອ່ານຟາຍທັງໝົດ...";
-  try {
-    const extension = (file.name.split(".").pop() || "").toLowerCase();
-    if (file.size > 20 * 1024 * 1024) throw new Error("ຟາຍຕ້ອງນ້ອຍກວ່າ 20 MB");
-    let allRecords = [], sourceSheets = [];
-    if (extension === "json") {
-      const data = JSON.parse(await file.text());
-      if (data && data.sheetsData) {
-        if (!confirm("JSON Backup ຈະຂຽນທັບ Board ທັງໝົດ. ຕ້ອງການສືບຕໍ່ບໍ?")) return;
-        importJSONBackup(file); closeImportModal(); return;
-      }
-      allRecords = Array.isArray(data) ? data : (Array.isArray(data.records) ? data.records : null);
-      if (!allRecords) throw new Error("JSON ຕ້ອງເປັນ array ຫຼື object ທີ່ມີ records");
-      sourceSheets = [file.name]; importMeta.format = "JSON";
-    } else if (extension === "csv") {
-      const parsed = arrayToImportRecords(parseDelimitedText(await file.text()), file.name);
-      allRecords = parsed.records; sourceSheets = [file.name]; importMeta.format = "CSV";
-    } else if (extension === "xlsx" || extension === "xls") {
-      await loadSheetJSForImport();
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true, raw: false, dense: false });
-      workbook.SheetNames.forEach(sheetName => {
-        const ws = workbook.Sheets[sheetName];
-        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false, blankrows: true });
-        if (!aoa.some(r => !rowIsBlank(r))) return;
-        const parsed = arrayToImportRecords(aoa, sheetName);
-        const canonicalHeaders = (parsed.headers || []).map(canonicalImportHeader);
-        // Only merge sheets that look like the main artwork/calendar plan.
-        // Strategy/reference sheets stay out of the Board table so they do not
-        // create unrelated rows/columns and make the layout messy.
-        const looksLikeBoardPlan = canonicalHeaders.includes("date") &&
-          (canonicalHeaders.includes("model") || canonicalHeaders.includes("item"));
-        if (!looksLikeBoardPlan) {
-          importMeta.skippedSheets = importMeta.skippedSheets || [];
-          importMeta.skippedSheets.push(sheetName);
-          return;
-        }
-        allRecords.push(...parsed.records);
-        sourceSheets.push(sheetName);
-      });
-      importMeta.format = "Excel";
-    } else {
-      throw new Error("ຮອງຮັບ CSV, Excel ແລະ JSON ເທົ່ານັ້ນ");
-    }
-    importDraft = (allRecords || []).filter(r => r && typeof r === "object" && Object.keys(r).some(k => !String(k).startsWith("__") && String(r[k] || "").trim() !== ""));
-    importMeta.sourceSheets = sourceSheets;
-    importMeta.totalRows = importDraft.length;
-    importMeta.headers = allImportHeaders(importDraft);
-    if (!importDraft.length) throw new Error("ບໍ່ພົບແຖວຂໍ້ມູນໃນຟາຍ");
-    if (importDraft.length > 10000) throw new Error("ນຳເຂົ້າໄດ້ສູງສຸດ 10,000 ລາຍການຕໍ່ຄັ້ງ");
-    populateImportItemColumns();
-    renderImportPreview();
-  } catch (err) {
-    importDraft = [];
-    importMeta = { format: "", sourceSheets: [], skippedSheets: [], totalRows: 0, headers: [] };
-    preview.innerHTML = `<span style="color:#e2445c;font-weight:700;">❌ ${escHtml(err.message)}</span>`;
-  }
-}
-function resolveImportedValue(record, targetHeader, itemHeader = null) {
-  const targetCanonical = canonicalImportHeader(targetHeader);
-  const keys = Object.keys(record || {}).filter(k => !String(k).startsWith("__"));
-  const excluded = itemHeader ? importKey(itemHeader) : "";
-  const exact = keys.find(k => importKey(k) === importKey(targetHeader) && importKey(k) !== excluded);
-  if (exact !== undefined) return record[exact];
-  const canonical = keys.find(k => canonicalImportHeader(k) === targetCanonical && importKey(k) !== excluded);
-  return canonical === undefined ? "" : record[canonical];
-}
-function renderImportPreview() {
-  const preview = document.getElementById("importPreview");
-  if (!importDraft || !importDraft.length) return;
-  const headers = allImportHeaders(importDraft);
-  const itemHeader = getSelectedImportItemHeader();
-  const effectiveAutoCount = importDraft.filter(r => !itemHeader).length;
-  const exampleRows = importDraft.slice(0, 5);
-  const sampleHeaders = headers.slice(0, 8);
-  const examples = exampleRows.map(row => `<tr>${sampleHeaders.map(h => `<td style="padding:4px 7px;border-top:1px solid var(--border-light);">${escHtml(row[h])}</td>`).join("")}</tr>`).join("");
-  const blankByChosen = itemHeader ? importDraft.filter(r => !String(r[itemHeader] == null ? "" : r[itemHeader]).trim()).length : 0;
-  preview.innerHTML = `
-    <div style="font-weight:800;color:#00a85a;">✅ ອ່ານໄດ້ ${importDraft.length} ລາຍການ — ພ້ອມ Import ທັງໝົດ</div>
-    <div style="margin:5px 0;">${escHtml(importMeta.format || "-")} · Sheet/Source: ${escHtml((importMeta.sourceSheets || []).join(", ") || "-")}</div>
-    ${(importMeta.skippedSheets || []).length ? `<div style="color:#fdab3d;">ℹ️ ບໍ່ນຳເຂົ້າ Sheet ທີ່ບໍ່ແມ່ນແຜນງານ: ${importMeta.skippedSheets.map(escHtml).join(", ")}</div>` : ""}
-    <div style="margin:5px 0;">ຈຳນວນຖັນທີ່ພົບ: ${headers.length} · ${itemHeader ? `Item: ${escHtml(itemHeader)}${blankByChosen ? ` (ວ່າງ ${blankByChosen} ແຖວ → ລະບົບຈະໃຊ້ Item ສຳຮອງ)` : ""}` : `ໃຫ້ລະບົບໃຊ້ Model/Item ເປັນຊື່ລາຍການ`}</div>
-    <div style="margin:5px 0;">ຖັນ: ${headers.map(escHtml).join(", ")}</div>
-    <div style="color:#00a85a;">✅ ຈະບໍ່ຂ້າມແຖວຂໍ້ມູນ; ແມ່ນແຕ່ຖ້າ Item ບໍ່ວ່າງບາງແຖວ ຈະໃຊ້ຄ່າສຳຮອງໃຫ້</div>
-    <table style="margin-top:7px;border-collapse:collapse;min-width:100%;"><thead><tr>${sampleHeaders.map(h => `<th style="padding:4px 7px;text-align:left;border-top:1px solid var(--border-light);">${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${examples}</tbody></table>`;
-  document.getElementById("confirmImportBtn").disabled = false;
-}
-function inferImportColumnType(header, records) {
-  const canonical = canonicalImportHeader(header);
-  if (canonical === "date") return "date";
-  const values = (records || []).map(r => String(r[header] == null ? "" : r[header]).trim()).filter(Boolean);
-  const numericCount = values.filter(v => /^-?\d+(\.\d+)?%?$/.test(v.replace(/,/g, ""))).length;
-  if (values.length >= 3 && numericCount / values.length >= 0.85) return "number";
-  return "text";
-}
-function ensureImportColumns(group) {
-  const headers=allImportHeaders(importDraft);
-  const selectedItem=getSelectedImportItemHeader();
-  const ignored=new Set(["item","model","index","sequence","rank"]);
-  headers.forEach(sourceHeader=>{
-    if(selectedItem && sameImportHeader(sourceHeader,selectedItem)) return;
-    const canonical=canonicalImportHeader(sourceHeader);
-    if(ignored.has(canonical) || importKey(sourceHeader)==="index") return;
-    const existing=(group.columns||[]).find(c=>canonicalImportHeader(c.name)===canonical || sameImportHeader(c.name,sourceHeader));
-    if(existing) return;
-    group.columns.push({id:"c_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),name:String(sourceHeader),type:canonical==="date"?"date":"text"});
-  });
-  reorderImportColumns(group);
-}
-function parseImportDateValue(value) {
-  const raw = String(value == null ? "" : value).trim();
-  if (!raw) return "";
-  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(raw)) {
-    const [y,m,d] = raw.split("-").map(Number);
-    const dt = new Date(y,m-1,d);
-    if (dt.getFullYear()===y && dt.getMonth()===m-1 && dt.getDate()===d) return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-  }
-  const dmy=raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if(dmy){
-    let a=Number(dmy[1]),b=Number(dmy[2]),y=Number(dmy[3]),day=a,month=b;
-    if(a<=12 && b>12){day=b;month=a;}
-    const dt=new Date(y,month-1,day);
-    if(dt.getFullYear()===y && dt.getMonth()===month-1 && dt.getDate()===day) return `${y}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-  }
-  const monthMap={"ມ.ກ":1,"ກ.ພ":2,"ມີ.ນ":3,"ມີ.ຄ":3,"ເມ.ສ":4,"ພ.ພ":5,"ມິ.ຖ":6,"ມ.ຖ":6,"ກ.ລ":7,"ສ.ຫ":8,"ກ.ຍ":9,"ຕ.ລ":10,"ພ.ຈ":11,"ທ.ວ":12,"ม.ค":1,"ก.พ":2,"มี.ค":3,"เม.ย":4,"พ.ค":5,"มิ.ย":6,"ก.ค":7,"ส.ค":8,"ก.ย":9,"ต.ค":10,"พ.ย":11,"ธ.ค":12};
-  const m=raw.match(/^(\d{1,2})\s*([^\d\s]+(?:\.[^\d\s]+)?)(?:\s*(\d{4}))?$/);
-  if(m){
-    const day=Number(m[1]), token=m[2].replace(/\.$/,""), month=monthMap[token]||monthMap[m[2]], year=m[3]?Number(m[3]):2026;
-    if(month && day>=1 && day<=31){
-      const dt=new Date(year,month-1,day);
-      if(dt.getFullYear()===year && dt.getMonth()===month-1 && dt.getDate()===day) return `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-    }
-  }
-  const dt=new Date(raw);
-  return Number.isNaN(dt.getTime()) ? raw : dt.toISOString().slice(0,10);
-}
-function getDerivedLaoDay(dateValue){
-  const raw=String(dateValue||"").trim(); if(!raw) return "";
-  const dt=new Date(raw.length===10 ? raw+"T00:00:00" : raw); if(Number.isNaN(dt.getTime())) return "";
-  return ["ວັນອາທິດ","ວັນຈັນ","ວັນອັງຄານ","ວັນພຸດ","ວັນພະຫັດ","ວັນສຸກ","ວັນເສົາ"][dt.getDay()];
-}
-function findTargetColumn(group, canonical){ return (group.columns||[]).find(c=>canonicalImportHeader(c.name)===canonical) || null; }
-function reorderImportColumns(group){
-  const order=["date","day","marketing activity","channels","after-sales service","kpi target"];
-  const rank=new Map(order.map((k,i)=>[k,i]));
-  group.columns.sort((a,b)=>{
-    const ra=rank.has(canonicalImportHeader(a.name))?rank.get(canonicalImportHeader(a.name)):100;
-    const rb=rank.has(canonicalImportHeader(b.name))?rank.get(canonicalImportHeader(b.name)):100;
-    return ra-rb;
-  });
-}
-function coerceImportValue(column, value) {
-  const rawOriginal = value == null ? "" : String(value).trim();
-  if (column.type === "date") return parseImportDateValue(rawOriginal);
-  if (column.type === "checkbox") return ["true","1","yes","y","ແມ່ນ","ຕົກລົງ"].includes(rawOriginal.toLowerCase());
-  if (column.type === "number" || column.type === "progress" || column.type === "rating") {
-    if (!rawOriginal) return "";
-    const n = Number(rawOriginal.replace(/,/g,""));
-    return Number.isFinite(n) ? n : 0;
-  }
-  if (column.type === "staff") {
-    const staff = staffOptions.find(s => s.id === rawOriginal || importKey(s.name) === importKey(rawOriginal));
-    return staff ? staff.id : "";
-  }
-  if (column.type === "select" && rawOriginal && !(column.options || []).some(o => importKey(o.label) === importKey(rawOriginal))) {
-    column.options = column.options || [];
-    column.options.push({ label: rawOriginal, color: "#579bfc" });
-  }
-  return rawOriginal;
-}
-function newImportRowId(preferredId, usedIds) {
-  const wanted = String(preferredId || "").trim();
-  if (wanted && !usedIds.has(wanted)) { usedIds.add(wanted); return wanted; }
-  let id = "r_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
-  while (usedIds.has(id)) id = "r_" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
-  usedIds.add(id); return id;
-}
-function confirmDataImport() {
-  if(!importDraft || !importDraft.length) return;
-  const sheetIndex=Number(document.getElementById("importSheetSelect").value);
-  const groupValue=document.getElementById("importGroupSelect").value;
-  let groupIndex=Number(groupValue);
-  const mode=document.getElementById("importModeSelect").value;
-  const sheet=sheetsData[sheetIndex];
-  let group=sheet && sheet.groups[groupIndex];
-  if(!sheet) return alert("ບໍ່ພົບ Sheet ປາຍທາງ");
-  if(groupValue==="__NEW__"){
-    const name=document.getElementById("importNewGroupName").value.trim() || ((importMeta.sourceSheets||[])[0]) || "Imported Data";
-    const sourceGroup=sheet.groups[0];
-    if(!sourceGroup) return alert("ບໍ່ພົບໂຄງສ້າງ Group ຕົ້ນແບບ");
-    group={id:"g_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),title:name,color:sheet.color||"#579bfc",collapsed:false,columns:JSON.parse(JSON.stringify(sourceGroup.columns||[])),rows:[]};
-    sheet.groups.push(group); groupIndex=sheet.groups.length-1;
-  }
-  if(!group) return alert("ບໍ່ພົບ Group ປາຍທາງ");
-  ensureImportColumns(group);
-  const selectedItem=getSelectedImportItemHeader();
-  const usedIds=new Set(group.rows.map(r=>String(r.id||"")));
-  let added=0,updated=0,sourceRows=0;
-  importDraft.forEach((record,index)=>{
-    const hasAny=Object.keys(record).some(k=>!String(k).startsWith("__") && String(record[k]==null?"":record[k]).trim()!=="");
-    if(!hasAny) return; sourceRows++;
-    const itemHeader=selectedItem && String(record[selectedItem]||"").trim()?selectedItem:guessRecordItemHeader(record);
-    let title=itemHeader?String(record[itemHeader]==null?"":record[itemHeader]).trim():"";
-    if(!title) title=`Imported row ${record.__sourceRow||index+1}`;
-    const recordId=String(importCell(record,["record id","id","recordid"])||"").trim();
-    let row=mode==="upsert" && recordId ? group.rows.find(r=>String(r.id||"")===recordId) : null;
-    if(row){ updated++; row.title=title; } else { row={id:newImportRowId(recordId,usedIds),title,values:{}}; group.rows.push(row); added++; }
-    let importedDate="";
-    group.columns.forEach(column=>{
-      const canonical=canonicalImportHeader(column.name);
-      if(["item","model","index"].includes(canonical)) return;
-      let value=resolveImportedValue(record,column.name,itemHeader);
-      if(!value && canonical==="date") value=importCell(record,["date","ວັນທີ"],{exclude:[itemHeader]});
-      if(!value && canonical==="day") value=importCell(record,["day","ວັນ","ມື້"],{exclude:[itemHeader]});
-      if(!value && canonical==="marketing activity") value=importCell(record,["marketing activity","concept artwork","activity","artwork"],{exclude:[itemHeader]});
-      if(!value && canonical==="kpi target") value=importCell(record,["kpi target","target","ເປົ້າໝາຍ"],{exclude:[itemHeader]});
-      if(canonical==="date"){
-        importedDate=coerceImportValue(column,value); row.values[column.id]=importedDate;
-      } else if(canonical==="day"){
-        const existingDateCol=findTargetColumn(group,"date");
-        const fallbackDate=existingDateCol?row.values[existingDateCol.id]:"";
-        const dayText=String(value||"").trim() || getDerivedLaoDay(importedDate||fallbackDate);
-        row.values[column.id]=dayText?coerceImportValue(column,dayText):"";
-      } else if(value!=="" && value!==undefined && value!==null){
-        row.values[column.id]=coerceImportValue(column,value);
-      } else if(!(column.id in row.values)) row.values[column.id]="";
-    });
-  });
-  reorderImportColumns(group);
-  activeSheetIdx=sheetIndex; renderBoard(); saveToGoogleSheets(); closeImportModal();
-  alert(`✅ Import ສຳເລັດ: ອ່ານ ${sourceRows} ລາຍການ → ເພີ່ມ ${added}, ອັບເດດ ${updated} · ຈັດເປັນຕາຕະລາງຕາມ Board`);
+function toggleImportNewGroupName(){
+  const isNew=document.getElementById("importGroupSelect").value==="__NEW__";
+  document.getElementById("importNewGroupNameWrap").style.display=isNew?"block":"none";
 }
 
-function downloadImportTemplate() {
-  const sheet = sheetsData[activeSheetIdx];
-  const group = sheet.groups[0];
-  const headers = ["Record ID", "Marketing Activity", ...group.columns.map(c => c.name)];
-  const example = ["", "Example activity", ...group.columns.map(c => c.type === "date" ? new Date().toISOString().slice(0, 10) : "")];
-  downloadBlob([headers, example].map(row => row.map(csvEscape).join(",")).join("\n"), `${sheet.name}_import_template.csv`, "text/csv;charset=utf-8;");
+/* ---- Built-in XLSX reader: no external SheetJS/CDN dependency ---- */
+function u16(bytes,p){ return bytes[p] | (bytes[p+1]<<8); }
+function u32(bytes,p){ return (bytes[p] | (bytes[p+1]<<8) | (bytes[p+2]<<16) | (bytes[p+3]<<24)) >>> 0; }
+function findEndOfCentralDirectory(bytes){
+  const sig=0x06054b50, start=Math.max(0,bytes.length-65557);
+  for(let p=bytes.length-22;p>=start;p--) if(u32(bytes,p)===sig) return p;
+  return -1;
+}
+function latin1Decode(bytes){ let s=""; const chunk=0x8000; for(let i=0;i<bytes.length;i+=chunk){ let sub=bytes.subarray(i,Math.min(i+chunk,bytes.length)); s+=String.fromCharCode(...sub); } return s; }
+function utf8Decode(bytes){ return new TextDecoder("utf-8").decode(bytes); }
+async function inflateRaw(bytes){
+  if(typeof DecompressionStream !== "function") throw new Error("Browser ບໍ່ຮອງຮັບ Excel compression; ກະລຸນາໃຊ້ Chrome/Edge ລ່າສຸດ");
+  const ds=new DecompressionStream("deflate-raw");
+  const ab=await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();
+  return new Uint8Array(ab);
+}
+async function unzipEntries(arrayBuffer){
+  const bytes=new Uint8Array(arrayBuffer), eocd=findEndOfCentralDirectory(bytes);
+  if(eocd<0) throw new Error("ຟາຍ Excel ບໍ່ໃຊ່ ZIP/XLSX ທີ່ຖືກຕ້ອງ");
+  const count=u16(bytes,eocd+10), cdOffset=u32(bytes,eocd+16); let p=cdOffset; const entries={};
+  for(let i=0;i<count;i++){
+    if(u32(bytes,p)!==0x02014b50) throw new Error("ອ່ານ Excel ZIP directory ບໍ່ສຳເລັດ");
+    const method=u16(bytes,p+10), csize=u32(bytes,p+20), usize=u32(bytes,p+24), nameLen=u16(bytes,p+28), extraLen=u16(bytes,p+30), commentLen=u16(bytes,p+32), localOffset=u32(bytes,p+42);
+    const name=utf8Decode(bytes.subarray(p+46,p+46+nameLen));
+    p+=46+nameLen+extraLen+commentLen;
+    if(name.endsWith("/")) continue;
+    if(!entries[name]){
+      const lp=localOffset;
+      if(u32(bytes,lp)!==0x04034b50) throw new Error("Excel local header ບໍ່ຖືກຕ້ອງ");
+      const ln=u16(bytes,lp+26), le=u16(bytes,lp+28), dataStart=lp+30+ln+le;
+      const compressed=bytes.subarray(dataStart,dataStart+csize);
+      let data;
+      if(method===0) data=compressed.slice();
+      else if(method===8) data=await inflateRaw(compressed);
+      else throw new Error("Excel ມີ compression ຮູບແບບທີ່ບໍ່ຮອງຮັບ");
+      if(usize && data.length!==usize) { /* allow some producers with descriptor quirks */ }
+      entries[name]=data;
+    }
+  }
+  return entries;
+}
+function xmlText(node){ return node ? node.textContent || "" : ""; }
+function columnIndexFromRef(ref){
+  const m=String(ref||"").match(/^[A-Z]+/i); if(!m) return 0; let n=0;
+  for(const ch of m[0].toUpperCase()) n=n*26+(ch.charCodeAt(0)-64);
+  return n-1;
+}
+function parseSharedStrings(entries){
+  const key=Object.keys(entries).find(k=>k==="xl/sharedStrings.xml"); if(!key) return [];
+  const doc=new DOMParser().parseFromString(utf8Decode(entries[key]),"application/xml");
+  const out=[]; for(const si of Array.from(doc.getElementsByTagNameNS("*","si"))){ out.push(Array.from(si.getElementsByTagNameNS("*","t")).map(xmlText).join("")); }
+  return out;
+}
+function parseWorksheetXML(bytes, sharedStrings){
+  const doc=new DOMParser().parseFromString(utf8Decode(bytes),"application/xml"), rows=[];
+  for(const rowNode of Array.from(doc.getElementsByTagNameNS("*","row"))){
+    const cells=Array.from(rowNode.getElementsByTagNameNS("*","c"));
+    const arr=[];
+    for(const c of cells){
+      const ref=c.getAttribute("r")||""; const idx=columnIndexFromRef(ref);
+      let value=""; const type=c.getAttribute("t")||"";
+      if(type==="inlineStr") value=Array.from(c.getElementsByTagNameNS("*","t")).map(xmlText).join("");
+      else { const v=c.getElementsByTagNameNS("*","v")[0]; const raw=xmlText(v); if(type==="s") value=sharedStrings[Number(raw)]??""; else if(type==="b") value=raw==="1"?"TRUE":"FALSE"; else value=raw; }
+      arr[idx]=value;
+    }
+    rows.push(arr.map(v=>v==null?"":v));
+  }
+  return rows;
+}
+async function parseXlsxWorkbook(arrayBuffer){
+  const entries=await unzipEntries(arrayBuffer);
+  const workbookXml=entries["xl/workbook.xml"];
+  if(!workbookXml) throw new Error("ບໍ່ພົບ xl/workbook.xml");
+  const relXml=entries["xl/_rels/workbook.xml.rels"];
+  const wbDoc=new DOMParser().parseFromString(utf8Decode(workbookXml),"application/xml");
+  const relDoc=relXml?new DOMParser().parseFromString(utf8Decode(relXml),"application/xml"):null;
+  const relMap={};
+  if(relDoc) for(const rel of Array.from(relDoc.getElementsByTagNameNS("*","Relationship"))) relMap[rel.getAttribute("Id")]=rel.getAttribute("Target");
+  const sharedStrings=parseSharedStrings(entries), sheets=[];
+  for(const sheet of Array.from(wbDoc.getElementsByTagNameNS("*","sheet"))){
+    const name=sheet.getAttribute("name")||"Sheet"; const rid=sheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id")||sheet.getAttribute("r:id");
+    let target=relMap[rid]||""; if(target && !target.startsWith("xl/")) target="xl/"+target.replace(/^\//,"");
+    target=target.replace(/^xl\/\.\.\//,"xl/");
+    if(!target) continue;
+    if(!entries[target]) { const alt=Object.keys(entries).find(k=>k.endsWith("/"+target.split("/").pop())); if(alt) target=alt; }
+    if(!entries[target]) continue;
+    sheets.push({name, rows:parseWorksheetXML(entries[target],sharedStrings)});
+  }
+  return sheets;
+}
+
+async function loadSheetJSForImport(){ return true; } // kept for backwards compatibility with older custom code
+
+function parseDelimitedText(text){
+  const raw=String(text||""); const sample=raw.split(/\r?\n/).slice(0,10).join("\n");
+  const delimiters=["\t",",",";","|"]; let delimiter=","; let best=-1;
+  for(const d of delimiters){ const n=sample.split(d).length; if(n>best){best=n;delimiter=d;} }
+  const rows=[]; let row=[], cur="", quoted=false;
+  for(let i=0;i<raw.length;i++){
+    const ch=raw[i], next=raw[i+1];
+    if(ch==='"' && quoted && next==='"'){cur+='"';i++;}
+    else if(ch==='"') quoted=!quoted;
+    else if(ch===delimiter&&!quoted){row.push(cur);cur="";}
+    else if((ch==='\n'||ch==='\r')&&!quoted){ if(ch==='\r'&&next==='\n') i++; row.push(cur);cur=""; if(!rowIsBlank(row)) rows.push(row); row=[]; }
+    else cur+=ch;
+  }
+  row.push(cur); if(!rowIsBlank(row)) rows.push(row); return rows;
+}
+async function readImportFile(file){
+  if(!file)return;
+  const preview=document.getElementById("importPreview"), confirmButton=document.getElementById("confirmImportBtn");
+  confirmButton.disabled=true; preview.innerText="ກຳລັງອ່ານຟາຍທັງໝົດ...";
+  try{
+    const ext=(file.name.split(".").pop()||"").toLowerCase();
+    if(file.size>50*1024*1024) throw new Error("ຟາຍຕ້ອງນ້ອຍກວ່າ 50 MB");
+    let allRecords=[], sourceSheets=[];
+    if(ext==="json"){
+      const data=JSON.parse(await file.text());
+      if(data&&data.sheetsData){ if(!confirm("JSON Backup ຈະຂຽນທັບ Board ທັງໝົດ. ຕ້ອງການສືບຕໍ່ບໍ?"))return; importJSONBackup(file);closeImportModal();return; }
+      if(Array.isArray(data)) allRecords=data; else if(Array.isArray(data.records)) allRecords=data.records; else throw new Error("JSON ຕ້ອງເປັນ array ຫຼື object ທີ່ມີ records");
+      sourceSheets=[file.name]; importMeta.format="JSON";
+    } else if(ext==="csv" || ext==="txt"){
+      allRecords=arrayToImportRecords(parseDelimitedText(await file.text()),file.name).records;
+      sourceSheets=[file.name]; importMeta.format=ext.toUpperCase();
+    } else if(ext==="xlsx"){
+      const workbookSheets=await parseXlsxWorkbook(await file.arrayBuffer());
+      let candidates=[];
+      workbookSheets.forEach((sh,idx)=>{
+        const parsed=arrayToImportRecords(sh.rows,sh.name);
+        const h=(parsed.headers||[]).map(canonicalImportHeader);
+        let score=0;
+        if(h.includes("date"))score+=6;
+        if(h.includes("model"))score+=6;
+        if(h.includes("item"))score+=4;
+        if(h.includes("marketing activity"))score+=3;
+        if(parsed.records.length)score+=Math.min(parsed.records.length,30)/30;
+        candidates.push({sh,parsed,score});
+      });
+      const best=candidates.filter(c=>c.parsed.records.length).sort((a,b)=>b.score-a.score)[0];
+      if(!best) throw new Error("ບໍ່ພົບຕາຕະລາງຂໍ້ມູນໃນ Excel");
+      allRecords=best.parsed.records; sourceSheets=[best.sh.name];
+      candidates.filter(c=>c!==best&&c.parsed.records.length).forEach(c=>importMeta.skippedSheets.push(c.sh.name));
+      importMeta.format="Excel";
+    } else if(ext==="xls"){
+      throw new Error("ຟາຍ .xls ຮຸ່ນເກົ່າບໍ່ຮອງຮັບ. ໃຫ້ Save As → .xlsx ແລ້ວ Import ໃໝ່");
+    } else throw new Error("ຮອງຮັບ CSV, XLSX ແລະ JSON ເທົ່ານັ້ນ");
+
+    importDraft=(allRecords||[]).filter(r=>r&&typeof r==="object"&&Object.keys(r).some(k=>!String(k).startsWith("__")&&String(r[k]??"").trim()!==""));
+    importMeta.sourceSheets=sourceSheets; importMeta.totalRows=importDraft.length; importMeta.headers=allImportHeaders(importDraft);
+    if(!importDraft.length) throw new Error("ບໍ່ພົບແຖວຂໍ້ມູນໃນຟາຍ");
+    if(importDraft.length>10000) throw new Error("ນຳເຂົ້າໄດ້ສູງສຸດ 10,000 ລາຍການຕໍ່ຄັ້ງ");
+    populateImportItemColumns(); renderImportPreview();
+  }catch(err){ importDraft=[]; importMeta={format:"",sourceSheets:[],skippedSheets:[],totalRows:0,headers:[],warnings:[]}; preview.innerHTML=`<span style="color:#e2445c;font-weight:700;">❌ ${escHtml(err.message)}</span>`; }
+}
+function resolveImportedValue(record,targetHeader,itemHeader=null){
+  const targetCanonical=canonicalImportHeader(targetHeader), excluded=itemHeader?importKey(itemHeader):"";
+  const keys=Object.keys(record||{}).filter(k=>!String(k).startsWith("__")&&importKey(k)!==excluded);
+  let key=keys.find(k=>sameImportHeader(k,targetHeader));
+  if(key!==undefined)return record[key];
+  key=keys.find(k=>canonicalImportHeader(k)===targetCanonical);
+  return key===undefined?"":record[key];
+}
+function renderImportPreview(){
+  const preview=document.getElementById("importPreview"); if(!importDraft.length)return;
+  const headers=allImportHeaders(importDraft), itemHeader=getSelectedImportItemHeader();
+  const blankCount=itemHeader?importDraft.filter(r=>!String(r[itemHeader]??"").trim()).length:0;
+  const sample=headers.slice(0,8), examples=importDraft.slice(0,5).map(r=>`<tr>${sample.map(h=>`<td style="padding:4px 7px;border-top:1px solid var(--border-light);">${escHtml(r[h])}</td>`).join("")}</tr>`).join("");
+  preview.innerHTML=`<div style="font-weight:800;color:#00a85a;">✅ ພົບ ${importDraft.length} ລາຍການ — ພ້ອມ Import</div>
+  <div style="margin:5px 0;">${escHtml(importMeta.format||"")} · Source: ${escHtml((importMeta.sourceSheets||[]).join(", "))}</div>
+  ${itemHeader?`<div style="margin:5px 0;">Item = <b>${escHtml(itemHeader)}</b>${blankCount?` · ວ່າງ ${blankCount} ແຖວ (ຈະໃຊ້ຄ່າສຳຮອງ)`:""}</div>`:""}
+  ${(importMeta.skippedSheets||[]).length?`<div style="color:#fdab3d;">ℹ️ ຂ້າມ Sheet ອື່ນ: ${importMeta.skippedSheets.map(escHtml).join(", ")}</div>`:""}
+  <div style="margin:5px 0;">ຖັນທີ່ພົບ: ${headers.map(escHtml).join(", ")}</div>
+  <table style="margin-top:7px;border-collapse:collapse;min-width:100%;"><thead><tr>${sample.map(h=>`<th style="padding:4px 7px;text-align:left;border-top:1px solid var(--border-light);">${escHtml(h)}</th>`).join("")}</tr></thead><tbody>${examples}</tbody></table>`;
+  document.getElementById("confirmImportBtn").disabled=false;
+}
+function parseImportDateValue(value){
+  const raw=String(value??"").trim(); if(!raw)return "";
+  if(/^\d{4}-\d{1,2}-\d{1,2}$/.test(raw)){ const [y,m,d]=raw.split("-").map(Number); const dt=new Date(y,m-1,d); if(dt.getFullYear()===y&&dt.getMonth()===m-1&&dt.getDate()===d)return `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
+  const dmy=raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(dmy){ const a=+dmy[1],b=+dmy[2],y=+dmy[3],day=b>12?b:a,month=b>12?a:b; const dt=new Date(y,month-1,day); if(dt.getFullYear()===y&&dt.getMonth()===month-1&&dt.getDate()===day)return `${y}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`; }
+  const months={"ມ.ກ":1,"ກ.ພ":2,"ມີ.ນ":3,"ມີ.ຄ":3,"ເມ.ສ":4,"ພ.ພ":5,"ມິ.ຖ":6,"ມ.ຖ":6,"ກ.ລ":7,"ສ.ຫ":8,"ກ.ຍ":9,"ຕ.ລ":10,"ພ.ຈ":11,"ທ.ວ":12,"ม.ค":1,"ก.พ":2,"มี.ค":3,"เม.ย":4,"พ.ค":5,"มิ.ย":6,"ก.ค":7,"ส.ค":8,"ก.ย":9,"ต.ค":10,"พ.ย":11,"ธ.ค":12};
+  const m=raw.match(/^(\d{1,2})\s*([^\d\s]+(?:\.[^\d\s]+)?)(?:\s*(\d{4}))?$/);
+  if(m){ const day=+m[1], token=m[2].replace(/\.$/,""), month=months[token]||months[m[2]], year=m[3]?+m[3]:2026; if(month){const dt=new Date(year,month-1,day);if(dt.getFullYear()===year&&dt.getMonth()===month-1&&dt.getDate()===day)return `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;}}
+  const dt=new Date(raw); return Number.isNaN(dt.getTime())?raw:dt.toISOString().slice(0,10);
+}
+function getDerivedLaoDay(dateValue){ const dt=new Date(String(dateValue||"").length===10?String(dateValue)+"T00:00:00":dateValue); if(Number.isNaN(dt.getTime()))return ""; return ["ວັນອາທິດ","ວັນຈັນ","ວັນອັງຄານ","ວັນພຸດ","ວັນພະຫັດ","ວັນສຸກ","ວັນເສົາ"][dt.getDay()]; }
+function findTargetColumn(group,canonical){ return (group.columns||[]).find(c=>canonicalImportHeader(c.name)===canonical)||null; }
+function reorderImportColumns(group){ const order=["date","day","marketing activity","channels","after-sales service","kpi target"]; const rank=new Map(order.map((k,i)=>[k,i])); group.columns.sort((a,b)=>(rank.has(canonicalImportHeader(a.name))?rank.get(canonicalImportHeader(a.name)):100)-(rank.has(canonicalImportHeader(b.name))?rank.get(canonicalImportHeader(b.name)):100)); }
+function ensureImportColumns(group){
+  const headers=allImportHeaders(importDraft), item=getSelectedImportItemHeader();
+  headers.forEach(h=>{
+    const canon=canonicalImportHeader(h); if(canon==="model"||canon==="item")return;
+    const exists=(group.columns||[]).find(c=>sameImportHeader(c.name,h)||canonicalImportHeader(c.name)===canon); if(exists)return;
+    const type=canon==="date"?"date":(canon==="channels"||canon==="after-sales service"||canon==="marketing activity"||canon==="kpi target"||canon==="day"?"text":"text");
+    group.columns.push({id:"c_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),name:String(h),type});
+  });
+  reorderImportColumns(group);
+}
+function coerceImportValue(column,value){
+  const raw=String(value??"").trim();
+  if(column.type==="date")return parseImportDateValue(raw);
+  if(column.type==="checkbox")return ["true","1","yes","y","ແມ່ນ","ຕົກລົງ"].includes(raw.toLowerCase());
+  if(column.type==="number"||column.type==="progress"||column.type==="rating"){ if(!raw)return ""; const n=Number(raw.replace(/,/g,"")); return Number.isFinite(n)?n:0; }
+  if(column.type==="staff"){const s=staffOptions.find(x=>x.id===raw||importKey(x.name)===importKey(raw));return s?s.id:"";}
+  if(column.type==="select"&&raw&&!(column.options||[]).some(o=>importKey(o.label)===importKey(raw))){column.options=column.options||[];column.options.push({label:raw,color:"#579bfc"});}
+  return raw;
+}
+function newImportRowId(preferredId,used){ let id=String(preferredId||"").trim(); if(id&&!used.has(id)){used.add(id);return id;} do{id="r_"+Date.now()+"_"+Math.random().toString(36).slice(2,9);}while(used.has(id));used.add(id);return id; }
+function confirmDataImport(){
+  if(!importDraft.length)return alert("❌ ບໍ່ມີຂໍ້ມູນໃຫ້ Import");
+  const sheetIndex=Number(document.getElementById("importSheetSelect").value), groupValue=document.getElementById("importGroupSelect").value, mode=document.getElementById("importModeSelect").value;
+  const sheet=sheetsData[sheetIndex]; if(!sheet)return alert("ບໍ່ພົບ Sheet ປາຍທາງ");
+  let group=groupValue==="__NEW__"?null:sheet.groups[Number(groupValue)];
+  if(!group){ const name=document.getElementById("importNewGroupName").value.trim()||((importMeta.sourceSheets||[])[0])||"Imported Data"; const source=sheet.groups[0]; if(!source)return alert("ບໍ່ພົບ Group ຕົ້ນແບບ"); group={id:"g_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),title:name,color:sheet.color||"#579bfc",collapsed:false,columns:JSON.parse(JSON.stringify(source.columns||[])),rows:[]}; sheet.groups.push(group); }
+  ensureImportColumns(group);
+  const selectedItem=getSelectedImportItemHeader(); const used=new Set(group.rows.map(r=>String(r.id||""))); let added=0,updated=0;
+  importDraft.forEach((rec,i)=>{
+    const itemHeader=(selectedItem&&String(rec[selectedItem]??"").trim())?selectedItem:guessRecordItemHeader(rec);
+    let title=itemHeader?String(rec[itemHeader]??"").trim():""; if(!title)title=`Imported row ${rec.__sourceRow||i+1}`;
+    const rid=String(importCell(rec,["record id","recordid","id"],{exclude:[itemHeader]})||"").trim();
+    let row=mode==="upsert"&&rid?group.rows.find(r=>String(r.id||"")===rid):null;
+    if(row){updated++;row.title=title;}else{row={id:newImportRowId(rid,used),title,values:{}};group.rows.push(row);added++;}
+    let importedDate="";
+    group.columns.forEach(col=>{
+      const canon=canonicalImportHeader(col.name); if(canon==="model"||canon==="item")return;
+      let value=resolveImportedValue(rec,col.name,itemHeader);
+      if(canon==="date"){ importedDate=coerceImportValue(col,value); row.values[col.id]=importedDate; return; }
+      if(canon==="day"){ const dateCol=findTargetColumn(group,"date"); const d=dateCol?row.values[dateCol.id]:importedDate; const dayText=String(value||"").trim()||getDerivedLaoDay(d); row.values[col.id]=dayText; return; }
+      if(value!==""&&value!==undefined&&value!==null) row.values[col.id]=coerceImportValue(col,value); else if(!(col.id in row.values))row.values[col.id]="";
+    });
+  });
+  reorderImportColumns(group); activeSheetIdx=sheetIndex; renderBoard(); saveToGoogleSheets(); closeImportModal();
+  alert(`✅ Import ສຳເລັດ: ອ່ານ ${importDraft.length} ລາຍການ → ເພີ່ມ ${added}, ອັບເດດ ${updated}`);
+}
+
+function downloadImportTemplate(){
+  const sheet=sheetsData[activeSheetIdx], group=sheet.groups[0], headers=["Record ID","Marketing Activity",...group.columns.map(c=>c.name)], example=["","Example activity",...group.columns.map(c=>c.type==="date"?new Date().toISOString().slice(0,10):"")];
+  downloadBlob([headers,example].map(r=>r.map(csvEscape).join(",")).join("\n"),`${sheet.name}_import_template.csv`,`text/csv;charset=utf-8;`);
 }
 
 function exportExcel() {
